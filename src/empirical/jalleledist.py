@@ -5,18 +5,45 @@ Created on Sep 6, 2021
 '''
 import numpy as np
 import pandas as pd
-
+import numbers
 from typing import Tuple, List, Dict, Union, Set
 import itertools
 from collections import defaultdict
 
 class JointAllellicDistribution(object):
 
-    def __init__(self, pseudocount = 1, window_size=3):
+    def __init__(self, snp_ordered, pseudocount = 1, surround_size=1):
         self.pseudocount = pseudocount
         self.frequency: Dict[Tuple[str,int],Dict[Tuple[str,int],Dict[Tuple[str,int],int]]] = dict()
         self.n_observations: Dict[Tuple[str,str,str]] = defaultdict(int)
-        self.window_size = window_size
+        self.surround_size = surround_size
+        self.window_size = (surround_size*2)+1
+        self.snp_ordered = snp_ordered
+    
+    def getWindow(self, targetSnp):
+        targetpos = self.snp_ordered.index(targetSnp)
+        startpos_snp = targetpos-self.surround_size
+        endpos_snp = targetpos+self.surround_size+1
+        return(self.snp_ordered[startpos_snp:endpos_snp])
+    
+    def getCountTable(self, observedstates, targetSnp):
+        targetpos = self.snp_ordered.index(targetSnp)
+        all_obs = [(snpid,observedstates[snpid]) for snpid in self.getWindow(targetSnp)]
+        
+        def copypastefunc(x):
+            r = all_obs.copy()
+            r[self.surround_size] = (targetSnp, x)
+            return(r)
+        
+        for state, query in enumerate(list(map(copypastefunc, [0,1,2]))):
+            #print("%s == %s" % (state, query))
+            workinghash = self.frequency
+            for item in query:
+                workinghash = workinghash[item]
+            if isinstance(workinghash, numbers.Number):
+                yield workinghash #it should be the result
+            else:
+                raise Exception("incomplete traversal of nested hash: final %s state %s" % (workinghash, state))
 
     def countJointFrq(self, table, mask):
         subset = table.iloc[mask.all(axis=1),:]
@@ -59,3 +86,19 @@ class JointAllellicDistribution(object):
 # print(emp.frequency)
 # print(emp.n_observations)
 #===============================================================================
+#===============================================================================
+# sim_data = pd.read_csv("/home/mhindle/simulation_correction_newalgo1/simulatedgenome.ssv", sep=" ", header=0, index_col=0)
+# print(sim_data)
+# 
+# emp = JointAllellicDistribution(list(sim_data.columns), surround_size=2)
+# emp.countJointFrqAll(sim_data)
+#  
+# print(emp.frequency)
+# print(emp.n_observations)
+# 
+# print(emp.getWindow('AX-75205428'))
+# print(sim_data.loc[4004165481949,emp.getWindow('AX-75205428')])
+# 
+# print(list(emp.getCountTable(sim_data.loc[4004165481949,emp.getWindow('AX-75205428')], 'AX-75205428')))
+#===============================================================================
+
