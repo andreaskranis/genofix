@@ -23,7 +23,11 @@ class JointAllellicDistribution(object):
     def getWindow(self, targetSnp):
         targetpos = self.snp_ordered.index(targetSnp)
         startpos_snp = targetpos-self.surround_size
+        if startpos_snp < 0:
+            startpos_snp = 0
         endpos_snp = targetpos+self.surround_size+1
+        if endpos_snp >= len(self.snp_ordered):
+            endpos_snp = len(self.snp_ordered)-1
         return(self.snp_ordered[startpos_snp:endpos_snp])
     
     def getCountTable(self, observedstates, targetSnp):
@@ -86,20 +90,22 @@ class JointAllellicDistribution(object):
 # print(emp.frequency)
 # print(emp.n_observations)
 #===============================================================================
-sim_data = pd.read_csv("/home/mhindle/simulation_correction_newalgo1/simulatedgenome.ssv", sep=" ", header=0, index_col=0)
-print(sim_data)
-
-emp = JointAllellicDistribution(list(sim_data.columns), surround_size=2)
-emp.countJointFrqAll(sim_data)
- 
-print(emp.frequency)
-print(emp.n_observations)
-
-print(emp.getWindow('AX-75205428'))
-print(sim_data.loc[4004165481949,emp.getWindow('AX-75205428')])
-x = sim_data.loc[4004165481949,emp.getWindow('AX-75205428')]
-print(x[x.index != 'AX-75205428'].values)
-
-
-print(list(emp.getCountTable(sim_data.loc[4004165481949,emp.getWindow('AX-75205428')], 'AX-75205428')))
+#===============================================================================
+# sim_data = pd.read_csv("/home/mhindle/simulation_correction_newalgo1/simulatedgenome.ssv", sep=" ", header=0, index_col=0)
+# print(sim_data)
+# 
+# emp = JointAllellicDistribution(list(sim_data.columns), surround_size=2)
+# emp.countJointFrqAll(sim_data)
+#  
+# print(emp.frequency)
+# print(emp.n_observations)
+# 
+# print(emp.getWindow('AX-75205428'))
+# print(sim_data.loc[4004165481949,emp.getWindow('AX-75205428')])
+# x = sim_data.loc[4004165481949,emp.getWindow('AX-75205428')]
+# print(x[x.index != 'AX-75205428'].values)
+# 
+# 
+# print(list(emp.getCountTable(sim_data.loc[4004165481949,emp.getWindow('AX-75205428')], 'AX-75205428')))
+#===============================================================================
 
