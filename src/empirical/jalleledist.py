@@ -12,13 +12,14 @@ from collections import defaultdict
 
 class JointAllellicDistribution(object):
 
-    def __init__(self, snp_ordered, pseudocount = 1, surround_size=1):
+    def __init__(self, snp_ordered, chromosomemap=None, pseudocount = 1, surround_size=1):
         self.pseudocount = pseudocount
         self.frequency: Dict[Tuple[str,int],Dict[Tuple[str,int],Dict[Tuple[str,int],int]]] = dict()
         self.n_observations: Dict[Tuple[str,str,str]] = defaultdict(int)
         self.surround_size = surround_size
         self.window_size = (surround_size*2)+1
         self.snp_ordered = snp_ordered
+        self.chromosomemap = chromosomemap
     
     def getWindow(self, targetSnp):
         targetpos = self.snp_ordered.index(targetSnp)
@@ -28,7 +29,11 @@ class JointAllellicDistribution(object):
         endpos_snp = targetpos+self.surround_size+1
         if endpos_snp >= len(self.snp_ordered):
             endpos_snp = len(self.snp_ordered)-1
-        return(self.snp_ordered[startpos_snp:endpos_snp])
+        snpWindow = self.snp_ordered[startpos_snp:endpos_snp]
+        if self.chromosomemap is not None:
+            targetchr = self.chromosomemap[targetSnp]
+            return([snpId for snpId in snpWindow if self.chromosomemap[snpId] == targetchr])
+        return(snpWindow)
     
     def getCountTable(self, observedstates, targetSnp):
         targetpos = self.snp_ordered.index(targetSnp)
