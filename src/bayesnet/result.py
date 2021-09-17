@@ -20,6 +20,7 @@ class ResultPairInfer(object):
         '''
         self.sire = sire
         self.dam = dam
+        self.jointprobs = {}
         self.bestprobs = {}
         self.beststate = {}
         self.bestprob_sire = {}

@@ -17,8 +17,6 @@ It defines classes_and_methods
 @deffield    updated: Updated
 '''
 import sys,os
-from debugpy._vendored.pydevd.pydevd_attach_to_process.winappdbg.win32.defines import TRUE
-from numpy import True_
 sys.path.append(os.getcwd())
 from argparse import ArgumentParser
 from argparse import RawDescriptionHelpFormatter
@@ -89,9 +87,11 @@ USAGE
         parser.add_argument("-s", "--snps", dest="snps", required=True, help="snp map file")
         parser.add_argument("-l", "--thresholdsingles", dest="threshold_singles", type=float, default=0.7, help="threshold prob for singles")
         parser.add_argument("-m", "--thresholdpairs", dest="threshold_pairs", type=float, default=0.5, help="threshold prob for mating pairs")
+        parser.add_argument("-w", "--surroundsnps", dest="surround_size", type=int, default=2, help="number of snps either side of a snp to create window for empirical")
         parser.add_argument("-o", "--outdir", dest="outdir", required=True , help="outputdir")
-        parser.add_argument("-d", "--nolddist", dest="nolddist",  action='store_false', help="do not use ld distance in calculation")
-        parser.add_argument("-b", "--lookback", lookback="lookback", type=int, default=2,  help="generations to look up/back")
+        parser.add_argument("-d", "--nolddist", dest="nolddist",  action='store_true', help="do not use ld distance in calculation")
+        parser.add_argument("-b", "--lookback", dest="lookback", type=int, default=2,  help="generations to look up/back")
+        parser.add_argument("-e", "--errorrate", dest="error_rate", type=float, default=1,  help="simulated error rate")
         parser.add_argument('-V', '--version', action='version', version=program_version_message)
         
         # Process arguments
@@ -104,11 +104,15 @@ USAGE
         
         threshold_singles = float(args.threshold_singles)
         threshold_pairs = float(args.threshold_pairs)
+        surround_size = int(args.surround_size)
         
         genomein = pd.read_csv(args.snps, sep=' ', names = ["chrom", "snpid", "cm", "pos"])
 
         lddist = (not args.nolddist)
-        print("Will use ld distance? : " % lddist)
+        print("Will use ld distance? %s: " % lddist)
+        
+        error_rate = args.error_rate
+        print("Will use error rate %s: "  % error_rate)
         
         lookback = args.lookback
         print("Will %s generations up/back: " % lookback)
@@ -173,7 +177,7 @@ USAGE
         genomematrix = pd.DataFrame.from_dict(data, orient='index', columns= snpids, dtype=np.uint8).iloc[:,0:50] ##first 50 snps
         del data
         
-        error_rate = 2.5
+        
         errors = math.ceil(genomematrix.size*(error_rate/100))
         
         print("will insert %spc errors or %s snps " % (error_rate, errors))
@@ -247,8 +251,8 @@ USAGE
                                                         pedigree, 
                                                         threshold_pairs, threshold_singles,
                                                         lddist, back=lookback,
-                                                        threads=20, DEBUGDIR=error2_dir, debugreal=genomematrix, 
-                                                        includeuncle=True, includekids=True)
+                                                        threads=20, DEBUGDIR=error2_dir, debugreal=genomematrix,
+                                                        surround_size=surround_size)
             corrected_genotype.to_csv("%s/simulatedgenome_corrected_errors_threshold_%s_%s.ssv" % (out_dir,threshold_pairs, threshold_singles), sep=" ")
             
             difference_after_correction = genotypes_with_errors == corrected_genotype
