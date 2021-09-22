@@ -387,7 +387,7 @@ class CorrectGenotypes(object):
                                 blanket.discard(resultPair.sire)
                                 blanket.discard(resultPair.dam)
                                 
-                                if lddist == 'local':
+                                if lddist == 'local': # this is immediate family only...TODO: add option to specify depth
                                     emp = JointAllellicDistribution(list(genotypes.columns),
                                                     surround_size=self.surround_size,
                                                     chromosome2snp=self.chromosome2snp)

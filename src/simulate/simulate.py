@@ -89,10 +89,12 @@ USAGE
         parser.add_argument("-m", "--thresholdpairs", dest="threshold_pairs", type=float, default=0.5, help="threshold prob for mating pairs")
         parser.add_argument("-w", "--surroundsnps", dest="surround_size", type=int, default=2, help="number of snps either side of a snp to create window for empirical")
         parser.add_argument("-o", "--outdir", dest="outdir", required=True , help="outputdir")
-        parser.add_argument("-d", "--lddisttype", dest="lddisttype", choices=['none', 'global', 'local'],  default='global', action='store_true', help="ld distance calculation type to use")
+        parser.add_argument("-d", "--lddisttype", dest="lddisttype",  default='global', type=str, choices=['none', 'global', 'local'], help="ld distance calculation type to use")
         parser.add_argument("-b", "--lookback", dest="lookback", type=int, default=2,  help="generations to look up/back")
         parser.add_argument("-t", "--tiethreshold", dest="tiethreshold", type=float, default=0.05,  help="error tolerance between probabilies to declare a tie")
         parser.add_argument("-e", "--errorrate", dest="error_rate", type=float, default=1,  help="simulated error rate")
+        parser.add_argument("-g", "--popgenome", dest="priorpopgenome", type=str, required=False,  help="skip population genomes generation and use specified file")
+        parser.add_argument("-n", "--firstnsnps", dest="first_n_snps", type=int, required=False,  help="only use the first n snps of the genome")
         parser.add_argument('-V', '--version', action='version', version=program_version_message)
         
         # Process arguments
@@ -103,11 +105,15 @@ USAGE
         
         pedigree = PedigreeDAG.from_file(args.pedigree)
         
+        first_n_snps  = args.first_n_snps
+        
         threshold_singles = float(args.threshold_singles)
         threshold_pairs = float(args.threshold_pairs)
         surround_size = int(args.surround_size)
         tiethreshold = float(args.tiethreshold)
         genomein = pd.read_csv(args.snps, sep=' ', names = ["chrom", "snpid", "cm", "pos"])
+
+        prior_genome = args.priorpopgenome
 
         lddist = args.lddisttype
         print("Will use ld distance type %s " % lddist)
@@ -173,19 +179,22 @@ USAGE
         
         snpids = list(chain(*[genome.chroms[chro].snpids for chro in chromosomes]))
         
-        #this is messy np.add(genotypes[kid].genotype[chro].values()) work?
-        data = {kid:np.concatenate([np.add(genotypes[kid].genotype[chro][0], genotypes[kid].genotype[chro][1]) for chro in chromosomes]) for kid in genotypes.keys()}
-        print("building genotype matrix")
-        genomematrix = pd.DataFrame.from_dict(data, orient='index', columns= snpids, dtype=np.uint8).iloc[:,0:50] ##first 50 snps
-        del data
-        
+        if prior_genome is None:
+            #this is messy np.add(genotypes[kid].genotype[chro].values()) work?
+            data = {kid:np.concatenate([np.add(genotypes[kid].genotype[chro][0], genotypes[kid].genotype[chro][1]) for chro in chromosomes]) for kid in genotypes.keys()}
+            print("building genotype matrix")
+            if first_n_snps is not None:
+                genomematrix = pd.DataFrame.from_dict(data, orient='index', columns= snpids, dtype=np.uint8).iloc[:,0:first_n_snps] ##first 50 snps
+            else :
+                genomematrix = pd.DataFrame.from_dict(data, orient='index', columns= snpids, dtype=np.uint8).iloc[:,0:first_n_snps] ##first 50 snps
+            del data
+            genomematrix.to_csv("%s/simulatedgenome.ssv.gz" % out_dir, sep=" ", compression='gzip')
+        else :
+            genomematrix = pd.read_csv(prior_genome, sep=" ", compression='gzip')
         
         errors = math.ceil(genomematrix.size*(error_rate/100))
-        
         print("will insert %spc errors or %s snps " % (error_rate, errors))
-
-        genomematrix.to_csv("%s/simulatedgenome.ssv" % out_dir, sep=" ")
-        
+            
         allelefrq = pd.DataFrame(np.array([genomematrix[snp].value_counts().values for snp in genomematrix.columns]), index=genomematrix.columns, columns=["0","1","2"])
         
         individuals = rs.choice(genomematrix.index, size=errors, replace=True)
