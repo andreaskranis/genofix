@@ -84,4 +84,7 @@ class TestPedigreeDAG(unittest.TestCase):
         
             #print(prediction.values)
             #2 2 2 1 2
-    
+
+if __name__ == "__main__":
+    #import sys;sys.argv = ['', 'Test.testName']
+    unittest.main()

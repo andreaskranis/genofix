@@ -25,7 +25,7 @@ from pedigree.pedigree_dag import PedigreeDAG
 import pathlib
 import pandas as pd
 import quickgsim as gsim
-from collections import Counter
+from collections import Counter, defaultdict
 import numpy as np
 import math
 from itertools import chain
@@ -117,6 +117,7 @@ USAGE
         lookback = args.lookback
         print("Will %s generations up/back: " % lookback)
         
+        chromosome2snp = defaultdict(set)
         chromosomes = set([row["chrom"] for index, row in genomein.iterrows()])
         chromosomesnps = {}
         for index, row in genomein.iterrows():
@@ -124,7 +125,7 @@ USAGE
                 chromosomesnps[row["chrom"]] = 1
             else:
                 chromosomesnps[row["chrom"]]+=1
-        
+            chromosome2snp[row["chrom"]].add(row["snpid"])
         print(chromosomesnps)
                 
         genome = gsim.genome.Genome()
@@ -229,11 +230,7 @@ USAGE
             statout.flush()
             
             print("Threshold singles %s threshold pairs %s" % (threshold_singles, threshold_singles))
-            error_dir = "%s/errors_threshhold_%s_%s/vmat" % (out_dir,threshold_singles, threshold_pairs)
-            pathlib.Path(error_dir).mkdir(parents=True, exist_ok=True)
-            error2_dir = "%s/errors_threshhold_%s_%s/emat" % (out_dir,threshold_singles, threshold_pairs)
-            pathlib.Path(error2_dir).mkdir(parents=True, exist_ok=True)
-            c = CorrectGenotypes()
+            c = CorrectGenotypes(chromosome2snp=chromosome2snp, surround_size=surround_size)
             #corrected_genotype = c.correctMatrix(genomematrix, 
             #                                            pedigree, 
             #                                            thresholdpairs, thresholdsingles,
@@ -251,8 +248,7 @@ USAGE
                                                         pedigree, 
                                                         threshold_pairs, threshold_singles,
                                                         lddist, back=lookback,
-                                                        threads=20, DEBUGDIR=error2_dir, debugreal=genomematrix,
-                                                        surround_size=surround_size)
+                                                        threads=20, DEBUGDIR=out_dir, debugreal=genomematrix)
             corrected_genotype.to_csv("%s/simulatedgenome_corrected_errors_threshold_%s_%s.ssv" % (out_dir,threshold_pairs, threshold_singles), sep=" ")
             
             difference_after_correction = genotypes_with_errors == corrected_genotype

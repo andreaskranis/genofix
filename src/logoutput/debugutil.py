@@ -10,7 +10,7 @@ from bayesnet.result import ResultPairInfer, ResultSingleInfer
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
-
+import os
 
 def _accumulateCombinations(states, length, current=0, thisarray=None):
     if thisarray is None:
@@ -22,7 +22,7 @@ def _accumulateCombinations(states, length, current=0, thisarray=None):
         thisarray[current] = state
         yield from _accumulateCombinations(states, length, current=current+1, thisarray=thisarray.copy())
 
-def _debugoutput(DEBUGDIR, name, SNP_id, resultPair: ResultPairInfer, restofblanket, corrected_genotype, debugreal, probs):
+def _debugoutput(OUTDIR, name, SNP_id, resultPair: ResultPairInfer, restofblanket, corrected_genotype, debugreal, probs):
     j = list(corrected_genotype.columns).index(SNP_id)
     
     observed_states = [corrected_genotype.loc[resultPair.sire,SNP_id], corrected_genotype.loc[resultPair.dam,SNP_id]]
@@ -31,6 +31,8 @@ def _debugoutput(DEBUGDIR, name, SNP_id, resultPair: ResultPairInfer, restofblan
     observed_prob = observed_prob_sire*observed_prob_dam
     max_prob = resultPair.bestprobs[SNP_id]
     max_states = resultPair.beststate[SNP_id]
+    DEBUGDIR = "%s/errors" % OUTDIR
+    os.makedirs(DEBUGDIR, exist_ok=True)
     
     with open("%s/%s___%s_%s_%s_error.txt" % (DEBUGDIR, name, resultPair.sire, resultPair.dam, SNP_id), "wt") as fout:
         fout.write("sire %s dam %s\n" % (resultPair.sire, resultPair.dam))
@@ -62,13 +64,16 @@ def _debugoutput(DEBUGDIR, name, SNP_id, resultPair: ResultPairInfer, restofblan
         plt.savefig("%s/%s___%s_%s_%s_error.png" % (DEBUGDIR, name, resultPair.sire, resultPair.dam, SNP_id))
         plt.close()
     
-def _debugoutput_s(DEBUGDIR, name, SNP_id, result: ResultSingleInfer, corrected_genotype, debugreal, probs):
+def _debugoutput_s(OUTDIR, name, SNP_id, result: ResultSingleInfer, corrected_genotype, debugreal, probs):
     
     j = list(corrected_genotype.columns).index(SNP_id)
     observed_state = corrected_genotype.loc[result.kid,SNP_id]
     observed_prob = result.observedprob[SNP_id]
     max_prob = result.bestprobs[SNP_id]
     max_states = result.beststate[SNP_id]
+    
+    DEBUGDIR = "%s/errors" % OUTDIR
+    os.makedirs(DEBUGDIR, exist_ok=True)
     
     with open("%s/%s___%s_%s_error.txt" % (DEBUGDIR, name, result.kid, SNP_id), "wt") as fout:
         fout.write("kid %s\n" % (result.kid))
