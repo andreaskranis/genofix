@@ -89,8 +89,9 @@ USAGE
         parser.add_argument("-m", "--thresholdpairs", dest="threshold_pairs", type=float, default=0.5, help="threshold prob for mating pairs")
         parser.add_argument("-w", "--surroundsnps", dest="surround_size", type=int, default=2, help="number of snps either side of a snp to create window for empirical")
         parser.add_argument("-o", "--outdir", dest="outdir", required=True , help="outputdir")
-        parser.add_argument("-d", "--nolddist", dest="nolddist",  action='store_true', help="do not use ld distance in calculation")
+        parser.add_argument("-d", "--lddisttype", dest="lddisttype", choices=['none', 'global', 'local'],  default='global', action='store_true', help="ld distance calculation type to use")
         parser.add_argument("-b", "--lookback", dest="lookback", type=int, default=2,  help="generations to look up/back")
+        parser.add_argument("-t", "--tiethreshold", dest="tiethreshold", type=float, default=0.05,  help="error tolerance between probabilies to declare a tie")
         parser.add_argument("-e", "--errorrate", dest="error_rate", type=float, default=1,  help="simulated error rate")
         parser.add_argument('-V', '--version', action='version', version=program_version_message)
         
@@ -105,11 +106,11 @@ USAGE
         threshold_singles = float(args.threshold_singles)
         threshold_pairs = float(args.threshold_pairs)
         surround_size = int(args.surround_size)
-        
+        tiethreshold = float(args.tiethreshold)
         genomein = pd.read_csv(args.snps, sep=' ', names = ["chrom", "snpid", "cm", "pos"])
 
-        lddist = (not args.nolddist)
-        print("Will use ld distance? %s: " % lddist)
+        lddist = args.lddisttype
+        print("Will use ld distance type %s " % lddist)
         
         error_rate = args.error_rate
         print("Will use error rate %s: "  % error_rate)
@@ -209,6 +210,7 @@ USAGE
         with open("%s/statistics.tsv" % out_dir, "wt") as statout:
             headers = ("threshold_pair",
                        "threshold_single",
+                       "tiethreshold",
                              "total_observations",
                              "positives",
                               "positive_nine", 
@@ -239,16 +241,16 @@ USAGE
             
             #differenceFP = genomematrix - corrected_genotype
             
-            statout.write('%s\t%s\t%s' % 
-                          (threshold_pairs, threshold_singles,
+            statout.write('%s\t%s\t%s\t%s' % 
+                          (threshold_pairs, threshold_singles, tiethreshold,
                            np.product(genomematrix.shape) ))
             statout.flush()
             
             corrected_genotype = c.correctMatrix(genotypes_with_errors, 
                                                         pedigree, 
                                                         threshold_pairs, threshold_singles,
-                                                        lddist, back=lookback,
-                                                        threads=20, DEBUGDIR=out_dir, debugreal=genomematrix)
+                                                        lddist, back=lookback, tiethreshold=tiethreshold,
+                                                        threads=22, DEBUGDIR=out_dir, debugreal=genomematrix)
             corrected_genotype.to_csv("%s/simulatedgenome_corrected_errors_threshold_%s_%s.ssv" % (out_dir,threshold_pairs, threshold_singles), sep=" ")
             
             difference_after_correction = genotypes_with_errors == corrected_genotype
