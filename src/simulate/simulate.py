@@ -93,8 +93,9 @@ USAGE
         parser.add_argument("-b", "--lookback", dest="lookback", type=int, default=2,  help="generations to look up/back")
         parser.add_argument("-t", "--tiethreshold", dest="tiethreshold", type=float, default=0.05,  help="error tolerance between probabilies to declare a tie")
         parser.add_argument("-e", "--errorrate", dest="error_rate", type=float, default=1,  help="simulated error rate")
-        parser.add_argument("-g", "--popgenome", dest="priorpopgenome", type=str, required=False,  help="skip population genomes generation and use specified file")
-        parser.add_argument("-n", "--firstnsnps", dest="first_n_snps", type=int, required=False,  help="only use the first n snps of the genome")
+        parser.add_argument("-g", "--popgenome", dest="prior_pop_genome", type=str, required=False,  help="skip population genomes generation and use specified file")
+        parser.add_argument("-z", "--popgenomeerrors", dest="prior_genome_errors", type=str, required=False,  help="skip insertion of errors and use specified file. NB error_rate option will be ignored")
+        parser.add_argument("-n", "--firstnsnps", dest="first_n_snps", type=int, required=False, default=None,  help="only use the first n snps of the genome")
         parser.add_argument('-V', '--version', action='version', version=program_version_message)
         
         # Process arguments
@@ -113,7 +114,8 @@ USAGE
         tiethreshold = float(args.tiethreshold)
         genomein = pd.read_csv(args.snps, sep=' ', names = ["chrom", "snpid", "cm", "pos"])
 
-        prior_genome = args.priorpopgenome
+        prior_genome = args.prior_pop_genome
+        prior_genome_errors = args.prior_genome_errors
 
         lddist = args.lddisttype
         print("Will use ld distance type %s " % lddist)
@@ -191,35 +193,41 @@ USAGE
             genomematrix.to_csv("%s/simulatedgenome.ssv.gz" % out_dir, sep=" ", compression='gzip')
         else :
             genomematrix = pd.read_csv(prior_genome, sep=" ", compression='gzip')
+            print("loaded genome matrix of size %s animals by %s snps" % genomematrix.shape)
         
         errors = math.ceil(genomematrix.size*(error_rate/100))
         print("will insert %spc errors or %s snps " % (error_rate, errors))
             
-        allelefrq = pd.DataFrame(np.array([genomematrix[snp].value_counts().values for snp in genomematrix.columns]), index=genomematrix.columns, columns=["0","1","2"])
+        #allelefrq = pd.DataFrame(np.array([genomematrix[snp].value_counts().values for snp in genomematrix.columns]), index=genomematrix.columns, columns=["0","1","2"])
         
         individuals = rs.choice(genomematrix.index, size=errors, replace=True)
         positionsmutate = rs.choice(genomematrix.columns, size=errors, replace=True)
         print("chromosomes found: %s " % chromosomes) 
         
-        genotypes_with_errors = genomematrix.copy()
-        
-        print("inserting errors into simulated genotypes...")
-        for kid, SNP_id in tqdm(zip(individuals, positionsmutate)):
-            actual = genotypes_with_errors.loc[kid, SNP_id]
-            target = actual
-            while target == actual:
-                target = rs.integers(size=1, low=0, high=3)
-            genotypes_with_errors.loc[kid, SNP_id] = target
-        
-        genotypes_with_errors.to_csv("%s/simulatedgenome_with_%serrors.ssv" % (out_dir, error_rate), sep=" ")
-        
+        if prior_genome_errors is None:
+            genotypes_with_errors = genomematrix.copy()
+            
+            print("inserting errors into simulated genotypes...")
+            for kid, SNP_id in tqdm(zip(individuals, positionsmutate)):
+                actual = genotypes_with_errors.loc[kid, SNP_id]
+                target = actual
+                while target == actual:
+                    target = rs.integers(size=1, low=0, high=3)
+                genotypes_with_errors.loc[kid, SNP_id] = target
+            
+            genotypes_with_errors.to_csv("%s/simulatedgenome_with_%serrors.ssv.gz" % (out_dir, error_rate), sep=" ", compression='gzip')
+        else:
+            genotypes_with_errors = pd.read_csv(prior_genome_errors, sep=" ", compression='gzip')
+            print("loaded error matrix of size %s animals by %s snps" % genomematrix.shape)
+            
         difference = genomematrix - genotypes_with_errors
         print("%s errors %1.2fpc in array" % (np.count_nonzero(difference), (np.count_nonzero(difference)/difference.size)*100))
         
         with open("%s/statistics.tsv" % out_dir, "wt") as statout:
             headers = ("threshold_pair",
                        "threshold_single",
-                       "tiethreshold",
+                       "prob_tie_threshold",
+                       "ld_distance_mode",
                              "total_observations",
                              "positives",
                               "positive_nine", 
@@ -250,8 +258,8 @@ USAGE
             
             #differenceFP = genomematrix - corrected_genotype
             
-            statout.write('%s\t%s\t%s\t%s' % 
-                          (threshold_pairs, threshold_singles, tiethreshold,
+            statout.write('%s\t%s\t%s\t%s\t%s' % 
+                          (threshold_pairs, threshold_singles, tiethreshold, lddist,
                            np.product(genomematrix.shape) ))
             statout.flush()
             

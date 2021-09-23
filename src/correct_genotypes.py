@@ -551,7 +551,7 @@ class CorrectGenotypes(object):
                                 observed_state = current_genotype.loc[resultkid.kid,SNP_id] 
                                 observed_prob = 0. if observed_state == 9 else resultkid.observedprob[SNP_id]
                                 
-                                if lddist and j > 0 and (j+1) < n_snps:
+                                if lddist != "none" and j > 0 and (j+1) < n_snps:
                                     observedstatesevidence = current_genotype.loc[resultkid.kid,emp.getWindow(SNP_id)]
                                     surroundevidence = observedstatesevidence[observedstatesevidence.index != SNP_id].values
                                     if 9 not in surroundevidence:
