@@ -38,7 +38,7 @@ class JointAllellicDistribution(object):
             return([snpId for snpId in snpWindow if self.chromosome2snp[snpId] == targetchr])
         return(snpWindow)
     
-    def getCountTable(self, observedstates, targetSnp):
+    def getCountTable(self, observedstates: dict, targetSnp):
         all_obs = [(snpid,observedstates[snpid]) for snpid in self.getWindow(targetSnp)]
         
         def copypastefunc(x):

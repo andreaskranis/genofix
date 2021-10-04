@@ -41,17 +41,24 @@ def generate_probs_kids(kidstates, oneparentstates):
     '''
     structA = [0,0,0,1,1,1,2,2,2]
     structB = [0,1,2,0,1,2,0,1,2]
-    prob_table = np.array([_default_mendelprobs[x] for x in kidstates])
-    for i,parent in enumerate(oneparentstates):
-        if parent is not None and parent in [0,1,2]:
-            prob_table[i,np.not_equal(structA,parent)] = 0
-        rowsum = np.sum(prob_table[i,])
-        if rowsum > 0:
-            prob_table[i,] = np.divide(prob_table[i,],rowsum)
-    prob_result = [np.nansum(prob_table[:, np.equal(structB,x)]) for x in [0,1,2]]
-    if sum(prob_result) > 0:
-        prob_result = prob_result/sum(prob_result)
-    return(prob_result)
+    
+    kidstates = np.asarray(kidstates)
+    oneparentstates = np.asarray(oneparentstates)
+    include = np.logical_and([x in [0,1,2] for x in kidstates], [x in [0,1,2] for x in oneparentstates])
+    
+    if np.count_nonzero(include) > 0:
+        prob_table = np.array([_default_mendelprobs[x] for x in kidstates[include]])
+        for i,parent in enumerate(oneparentstates[include]):
+            if parent is not None and parent in [0,1,2]:
+                prob_table[i,np.not_equal(structA,parent)] = 0
+            rowsum = np.sum(prob_table[i,])
+            if rowsum > 0:
+                prob_table[i,] = np.divide(prob_table[i,],rowsum)
+        prob_result = [np.nansum(prob_table[:, np.equal(structB,x)]) for x in [0,1,2]]
+        if sum(prob_result) > 0:
+            prob_result = prob_result/sum(prob_result)
+        return(prob_result)
+    return[1/3,1/3,1/3]
 
 def generate_probs_differences_kids(kidstates, oneparentstates, observedstate):
     '''
@@ -62,16 +69,22 @@ def generate_probs_differences_kids(kidstates, oneparentstates, observedstate):
     structB = [0,1,2,0,1,2,0,1,2]
     statprobtable = np.zeros((len(kidstates),3))
     
-    prob_table = np.array([_default_mendelprobs[x] for x in kidstates])
-    for i,parent in enumerate(oneparentstates):
-        if parent is not None and parent in [0,1,2]:
-            prob_table[i,np.not_equal(structA,parent)] = 0
-        rowsum = np.sum(prob_table[i,])
-        if rowsum > 0:
-            prob_table[i,] = np.divide(prob_table[i,],rowsum)
-        statprobtable[i,:] = [np.nansum(prob_table[i, np.equal(structB,x)]) for x in [0,1,2]]
-    return([np.nanmax(row)-row[observedstate] for row in statprobtable])
-
+    kidstates = np.asarray(kidstates)
+    oneparentstates = np.asarray(oneparentstates)
+    include = np.logical_and([x in [0,1,2] for x in kidstates], [x in [0,1,2] for x in oneparentstates])
+    
+    if np.count_nonzero(include) > 0:
+        prob_table = np.array([_default_mendelprobs[x] for x in kidstates[include]])
+        for i,parent in enumerate(oneparentstates[include]):
+            if parent is not None and parent in [0,1,2]:
+                prob_table[i,np.not_equal(structA,parent)] = 0
+            rowsum = np.sum(prob_table[i,])
+            if rowsum > 0:
+                prob_table[i,] = np.divide(prob_table[i,],rowsum)
+            statprobtable[i,:] = [np.nansum(prob_table[i, np.equal(structB,x)]) for x in [0,1,2]]
+        return([np.nanmax(row)-row[observedstate] for row in statprobtable])
+    return([])
+        
 def generate_probs_differences_parent(parent1, parent2, observedstate):
     '''
      sire 0  0   0   1   1   1  2  2  2
@@ -96,7 +109,7 @@ def generate_probs_differences_parent(parent1, parent2, observedstate):
 # print(generate_probs_differences_parent(9,2,0))
 # print(generate_probs_differences_parent(9,9,1))
 # 
-# print(generate_probs_differences_kids([1,0,1,0,1],[2,2,2,2,2],2))
+print(generate_probs_differences_kids([1,0,1,0,1],[2,2,2,2,2],2))
 # print(generate_probs_kids([1,0,1,0,1],[2,2,2,2,2]))
 #===============================================================================
 

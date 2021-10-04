@@ -96,6 +96,9 @@ USAGE
         parser.add_argument("-g", "--popgenome", dest="prior_pop_genome", type=str, required=False,  help="skip population genomes generation and use specified file")
         parser.add_argument("-z", "--popgenomeerrors", dest="prior_genome_errors", type=str, required=False,  help="skip insertion of errors and use specified file. NB error_rate option will be ignored")
         parser.add_argument("-n", "--firstnsnps", dest="first_n_snps", type=int, required=False, default=None,  help="only use the first n snps of the genome")
+        parser.add_argument("-q", "--initquantilefilter", dest="initquantilefilter", type=float, required=False, default=0.9,  help="initial filter to select upper quantile in error likelihood dist")
+        parser.add_argument("-W", "--weightempirical", dest="weight_empirical", type=float, required=False, default=2,  help="weight of empirical vs collected medelian error when ranking snps by error probability")
+        parser.add_argument("-i", "--iterations", dest="iterations", type=int, required=False, default=1,  help="number of correction iterations")
         parser.add_argument('-V', '--version', action='version', version=program_version_message)
         
         # Process arguments
@@ -113,6 +116,9 @@ USAGE
         surround_size = int(args.surround_size)
         tiethreshold = float(args.tiethreshold)
         genomein = pd.read_csv(args.snps, sep=' ', names = ["chrom", "snpid", "cm", "pos"])
+        init_filter_p = float(args.initquantilefilter) 
+        weight_empirical = float(args.weight_empirical)
+        iterations = args.iterations
 
         prior_genome = args.prior_pop_genome
         prior_genome_errors = args.prior_genome_errors
@@ -227,7 +233,10 @@ USAGE
             headers = ("threshold_pair",
                        "threshold_single",
                        "prob_tie_threshold",
+                       "init_filter_p",
+                       "weight_empirical",
                        "ld_distance_mode",
+                       "iteration_run",
                              "total_observations",
                              "positives",
                               "positive_nine", 
@@ -248,118 +257,123 @@ USAGE
             statout.write('\t'.join(headers)+'\n')
             statout.flush()
             
-            print("Threshold singles %s threshold pairs %s" % (threshold_singles, threshold_singles))
-            c = CorrectGenotypes(chromosome2snp=chromosome2snp, surround_size=surround_size)
-            #corrected_genotype = c.correctMatrix(genomematrix, 
-            #                                            pedigree, 
-            #                                            thresholdpairs, thresholdsingles,
-            #                                            threads=12, DEBUGDIR=error_dir)
-            #corrected_genotype.to_csv("%s/simulatedgenome_corrected_virgin_threshold_%s_%s.ssv" % (out_dir,thresholdpairs, thresholdsingles), sep=" ")
-            
-            #differenceFP = genomematrix - corrected_genotype
-            
-            statout.write('%s\t%s\t%s\t%s\t%s' % 
-                          (threshold_pairs, threshold_singles, tiethreshold, lddist,
+            corrected_genotype = None
+            for i_run in range(1,iterations+1):
+                print("Running iteration %s of error correction" % (i_run))
+                c = CorrectGenotypes(chromosome2snp=chromosome2snp, surround_size=surround_size)
+                
+                statout.write('%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s' % 
+                          (threshold_pairs, threshold_singles, tiethreshold, init_filter_p, weight_empirical,lddist,i_run,
                            np.product(genomematrix.shape) ))
-            statout.flush()
-            
-            corrected_genotype = c.correctMatrix(genotypes_with_errors, 
-                                                        pedigree, 
-                                                        threshold_pairs, threshold_singles,
-                                                        lddist, back=lookback, tiethreshold=tiethreshold,
-                                                        threads=22, DEBUGDIR=out_dir, debugreal=genomematrix)
-            corrected_genotype.to_csv("%s/simulatedgenome_corrected_errors_threshold_%s_%s.ssv" % (out_dir,threshold_pairs, threshold_singles), sep=" ")
-            
-            difference_after_correction = genotypes_with_errors == corrected_genotype
-            difference_true_errors = genomematrix == genotypes_with_errors
-            difference_error_post_correction = genomematrix == corrected_genotype
-            
-            old_error_n = np.count_nonzero(np.logical_not(difference_true_errors))
-            new_error_n = np.count_nonzero(np.logical_not(difference_error_post_correction))
-            
-            n_notchanging = np.count_nonzero(np.bitwise_and(genomematrix == genotypes_with_errors,genomematrix == corrected_genotype))
-            
-            positives = np.count_nonzero(difference_after_correction)
-            positive_nine = np.count_nonzero(corrected_genotype == 9)
-            negatives = np.count_nonzero(np.logical_not(difference_after_correction))
-            
-            correct_in_errormatrix = np.count_nonzero(difference_true_errors)
-            correct_in_corrected = np.count_nonzero(difference_after_correction)
-            error_in_errormatrix = np.count_nonzero(np.logical_not(difference_true_errors))
-            error_in_corrected = np.count_nonzero(np.logical_not(difference_after_correction))
-            
-            still_wrong = np.logical_and(np.logical_not(difference_error_post_correction), np.logical_not(difference_true_errors))
-            nolonger_wrong = np.logical_and(difference_error_post_correction, np.logical_not(difference_true_errors))
-            new_wrong = np.logical_and(np.logical_not(difference_error_post_correction), difference_true_errors)
-            still_right = np.logical_and(difference_error_post_correction, difference_true_errors)
-            
-            nolonger_wrong_nine = np.logical_and(np.logical_or(difference_error_post_correction,corrected_genotype == 9), np.logical_not(difference_true_errors))
-            
-            print("correct_in_errormatrix "+str(correct_in_errormatrix))
-            print("correct_in_corrected "+str(correct_in_corrected))
-            print("error_in_errormatrix "+str(error_in_errormatrix))
-            print("error_in_corrected "+str(error_in_corrected))
-            
-            false_positives  = np.count_nonzero(new_wrong)
-            true_positives = np.count_nonzero(nolonger_wrong)
-            false_negatives = np.count_nonzero(still_wrong)
-            true_negatives = np.count_nonzero(still_right)
-            
-            print("false_positives "+str(false_positives))
-            print("true_positives "+str(true_positives))
-            print("false_negatives "+str(false_negatives))
-            print("true_negatives "+str(true_negatives))
-            
-            print("sum stats: "+str(false_positives+true_positives+false_negatives+true_negatives)+" size genotype array: "+str(len(genomematrix)))
-            
-            true_positives_nine = np.count_nonzero(nolonger_wrong_nine)
-            
-            if (true_positives + false_positives) > 0:
-                precision = true_positives / (true_positives + false_positives)
-            else:
-                precision = 0
-            
-            if (true_positives + false_negatives) > 0:
-                recall = true_positives / (true_positives + false_negatives)
-            else:
-                recall = 0
-            
-            if (precision+recall) > 0:
-                fscore = (2*precision*recall)/(precision+recall)
-            else:
-                fscore = 0
-            
-            if (true_positives_nine + false_positives) > 0:
-                precision_nine = true_positives_nine / (true_positives_nine + false_positives)
-            else:
-                precision_nine = 0
-            if (true_positives_nine + false_negatives) > 0:
-                recall_nine = true_positives_nine / (true_positives_nine + false_negatives)
-            else:
-                recall_nine = 0
-            if (precision_nine+recall_nine) > 0:
-                fscore_nine = (2*precision_nine*recall_nine)/(precision_nine+recall_nine)
-            else:
-                fscore_nine = 0
-            
-            statout.write('\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%1.4f\t%1.4f\t%1.4f\t%s\t%1.4f\t%1.4f\t%1.4f\n' % 
-                          (positives,
-                           positive_nine, 
-                           negatives,
-                           old_error_n,
-                           new_error_n,
-                           false_positives,
-                           true_positives,
-                           false_negatives,
-                           true_negatives,
-                           precision, 
-                           recall, 
-                           fscore, 
-                           true_positives_nine,
-                           precision_nine,
-                           recall_nine,
-                           fscore_nine))
-            statout.flush()
+                statout.flush()
+                
+                if corrected_genotype is None:
+                    corrected_genotype = c.correctMatrix(genotypes_with_errors, 
+                                                                pedigree, 
+                                                                threshold_pairs, threshold_singles,
+                                                                lddist, back=lookback, tiethreshold=tiethreshold, init_filter_p=init_filter_p,
+                                                                weight_empirical=weight_empirical,
+                                                                threads=22, DEBUGDIR=out_dir, debugreal=genomematrix)
+                else:
+                    corrected_genotype = c.correctMatrix(corrected_genotype, 
+                                                                pedigree, 
+                                                                threshold_pairs, threshold_singles,
+                                                                lddist, back=lookback, tiethreshold=tiethreshold, init_filter_p=init_filter_p,
+                                                                weight_empirical=weight_empirical,
+                                                                threads=22, DEBUGDIR=out_dir, debugreal=genomematrix)
+                
+                corrected_genotype.to_csv("%s/simulatedgenome_corrected_errors_threshold_%s.ssv" % (out_dir, i_run), sep=" ")
+                
+                difference_after_correction = genotypes_with_errors == corrected_genotype
+                difference_true_errors = genomematrix == genotypes_with_errors
+                difference_error_post_correction = genomematrix == corrected_genotype
+                
+                old_error_n = np.count_nonzero(np.logical_not(difference_true_errors))
+                new_error_n = np.count_nonzero(np.logical_not(difference_error_post_correction))
+                
+                n_notchanging = np.count_nonzero(np.bitwise_and(genomematrix == genotypes_with_errors,genomematrix == corrected_genotype))
+                
+                positives = np.count_nonzero(difference_after_correction)
+                positive_nine = np.count_nonzero(corrected_genotype == 9)
+                negatives = np.count_nonzero(np.logical_not(difference_after_correction))
+                
+                correct_in_errormatrix = np.count_nonzero(difference_true_errors)
+                correct_in_corrected = np.count_nonzero(difference_after_correction)
+                error_in_errormatrix = np.count_nonzero(np.logical_not(difference_true_errors))
+                error_in_corrected = np.count_nonzero(np.logical_not(difference_after_correction))
+                
+                still_wrong = np.logical_and(np.logical_not(difference_error_post_correction), np.logical_not(difference_true_errors))
+                nolonger_wrong = np.logical_and(difference_error_post_correction, np.logical_not(difference_true_errors))
+                new_wrong = np.logical_and(np.logical_not(difference_error_post_correction), difference_true_errors)
+                still_right = np.logical_and(difference_error_post_correction, difference_true_errors)
+                
+                nolonger_wrong_nine = np.logical_and(np.logical_or(difference_error_post_correction,corrected_genotype == 9), np.logical_not(difference_true_errors))
+                
+                print("correct_in_errormatrix "+str(correct_in_errormatrix))
+                print("correct_in_corrected "+str(correct_in_corrected))
+                print("error_in_errormatrix "+str(error_in_errormatrix))
+                print("error_in_corrected "+str(error_in_corrected))
+                
+                false_positives  = np.count_nonzero(new_wrong)
+                true_positives = np.count_nonzero(nolonger_wrong)
+                false_negatives = np.count_nonzero(still_wrong)
+                true_negatives = np.count_nonzero(still_right)
+                
+                print("false_positives "+str(false_positives))
+                print("true_positives "+str(true_positives))
+                print("false_negatives "+str(false_negatives))
+                print("true_negatives "+str(true_negatives))
+                
+                print("sum stats: "+str(false_positives+true_positives+false_negatives+true_negatives)+" size genotype array: "+str(len(genomematrix)))
+                
+                true_positives_nine = np.count_nonzero(nolonger_wrong_nine)
+                
+                if (true_positives + false_positives) > 0:
+                    precision = true_positives / (true_positives + false_positives)
+                else:
+                    precision = 0
+                
+                if (true_positives + false_negatives) > 0:
+                    recall = true_positives / (true_positives + false_negatives)
+                else:
+                    recall = 0
+                
+                if (precision+recall) > 0:
+                    fscore = (2*precision*recall)/(precision+recall)
+                else:
+                    fscore = 0
+                
+                if (true_positives_nine + false_positives) > 0:
+                    precision_nine = true_positives_nine / (true_positives_nine + false_positives)
+                else:
+                    precision_nine = 0
+                if (true_positives_nine + false_negatives) > 0:
+                    recall_nine = true_positives_nine / (true_positives_nine + false_negatives)
+                else:
+                    recall_nine = 0
+                if (precision_nine+recall_nine) > 0:
+                    fscore_nine = (2*precision_nine*recall_nine)/(precision_nine+recall_nine)
+                else:
+                    fscore_nine = 0
+                
+                statout.write('\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%1.4f\t%1.4f\t%1.4f\t%s\t%1.4f\t%1.4f\t%1.4f\n' % 
+                              (positives,
+                               positive_nine, 
+                               negatives,
+                               old_error_n,
+                               new_error_n,
+                               false_positives,
+                               true_positives,
+                               false_negatives,
+                               true_negatives,
+                               precision, 
+                               recall, 
+                               fscore, 
+                               true_positives_nine,
+                               precision_nine,
+                               recall_nine,
+                               fscore_nine))
+                statout.flush()
         return(0)
     except KeyboardInterrupt:
         ### handle keyboard interrupt ###

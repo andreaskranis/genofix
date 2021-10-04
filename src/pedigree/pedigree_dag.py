@@ -109,7 +109,7 @@ class PedigreeDAG(nx.DiGraph):
         return(PedigreeDAG.from_table(pedigree))
     
     def get_parents_depth(self, kids:List[int], depth:int) -> Generator[int, None, None]:
-        if isinstance(kids, int):
+        if isinstance(kids, int) or isinstance(kids, np.int):
             kids = [kids]
         
         if depth > 0 and len(kids) > 0:
@@ -121,7 +121,7 @@ class PedigreeDAG(nx.DiGraph):
             yield from self.get_parents_depth(new, depth-1)
     
     def get_kids_depth(self, kids:List[int], depth:int) -> Generator[int, None, None]:
-        if isinstance(kids, int):
+        if isinstance(kids, int) or isinstance(kids, np.int):
             kids = [kids]
         
         if depth > 0 and len(kids) > 0:
@@ -211,7 +211,7 @@ class PedigreeDAG(nx.DiGraph):
         '''
         return list of kid ids
         '''
-        kids = self.get_kids(parent)
+        kids = list(self.get_kids(parent))
         if len(kids) > 0:
             parents: Set[int] = set(np.concatenate([self.get_parents(kid) for kid in kids]))
             if len(parents) > 0 :
