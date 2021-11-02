@@ -15,10 +15,12 @@ class Genotype(UserDict):
         self.maternal_strand = maternal_strand
 
 
-    def add_haplo_toStrand(self,chrom,strand,haplo_gen,mv=9):
+    def add_haplo_toStrand(self,chrom,strand,haplo_gen,mv=9, random_assign_missing=False):
         if strand in [self.paternal_strand,self.maternal_strand]:
-            self.data[chrom][strand] = np.where(haplo_gen==mv, self.rs.integers(0,2), haplo_gen)
-
+            if random_assign_missing:
+                self.data[chrom][strand] = np.where(haplo_gen==mv, self.rs.integers(0,2), haplo_gen)
+            else:
+                self.data[chrom][strand] = haplo_gen
     def iterate_chroms(self,specific_chroms=[]):
         chroms = self.data.keys()
         if specific_chroms:

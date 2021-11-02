@@ -90,15 +90,14 @@ USAGE
         
         print("reading %s " % rank_stats_file)
         
-        inputdata =  pd.read_table(rank_stats_file, delimiter="\t", header=None,index_col=None)
-        inputdata.columns = ["obs_state",
-                             "real_state",
-                             "maxp_state",
-                             "rank_obs_comb_multiply", "rank_obs_comb_mean","rank_real_mean", 
-                             "rank_real_mendel", "rank_real_emp", "rank_real_multiply"
-                             ]   
-
-                    
+        inputdata =  pd.read_table(rank_stats_file, delimiter="\t", header=None)
+        inputdata.columns = ["obs_state","real_state","maxp_state","rank_real_emp","rank_obs_emp",
+                             "rank_real_mendel","rank_obs_mendel", "rank_real_combproduct","rank_obs_combproduct", 
+                             "rank_real_combmean","rank_obs_combmean",
+                             "rank_real_emp_sire", "rank_real_emp_dam",
+                             "rank_real_mendel_sire", "rank_real_mendel_dam",
+                             "rank_real_emp2","rank_real_mendel2"]
+                                                                        
         print(inputdata)
         
         print("plot: empirical vs mendel bayes model")
@@ -119,7 +118,7 @@ USAGE
         plt.savefig("%s/hist_2d_empvsmendel.png" % output_dir, bbox_inches='tight')
         
         print("plot: mean combined vs mendel bayes model")
-        heatmap, xedges, yedges = np.histogram2d(inputdata["rank_obs_comb_multiply"], inputdata["rank_real_mendel"], bins=(9,9))
+        heatmap, xedges, yedges = np.histogram2d(inputdata["rank_real_combproduct"], inputdata["rank_real_mendel"], bins=(9,9))
         extent = [xedges[0], xedges[-1], yedges[0], yedges[-1]]
 
         plt.clf()
@@ -135,7 +134,7 @@ USAGE
         plt.savefig("%s/hist_2d_combproductvsmendel.png" % output_dir, bbox_inches='tight')
         
         print("plot: product combined vs mendel bayes model")
-        heatmap, xedges, yedges = np.histogram2d(inputdata["rank_real_mean"], inputdata["rank_real_mendel"], bins=(9,9))
+        heatmap, xedges, yedges = np.histogram2d(inputdata["rank_real_combmean"], inputdata["rank_real_mendel"], bins=(9,9))
         extent = [xedges[0], xedges[-1], yedges[0], yedges[-1]]
         
         plt.clf()
@@ -153,11 +152,19 @@ USAGE
         print("plot: stacked bar chart of ranks")
         
         rank_real_emp = Counter(inputdata["rank_real_emp"])
+        rank_real_emp2 = Counter(inputdata["rank_real_emp2"])  
+        rank_real_emp_sire = Counter(inputdata["rank_real_emp_sire"])
+        rank_real_emp_dam = Counter(inputdata["rank_real_emp_dam"])
         rank_real_mendel = Counter(inputdata["rank_real_mendel"])
-        rank_real_combproduct = Counter(inputdata["rank_real_multiply"])
-        rank_real_combmean = Counter(inputdata["rank_real_mean"])
+        rank_real_mendel2 = Counter(inputdata["rank_real_mendel2"])
+        rank_real_mendel_sire = Counter(inputdata["rank_real_mendel_sire"])
+        rank_real_mendel_dam = Counter(inputdata["rank_real_mendel_dam"])
+        rank_real_combproduct = Counter(inputdata["rank_real_combproduct"])
+        rank_real_combmean = Counter(inputdata["rank_real_combmean"])
         
-        counter = [rank_real_emp, rank_real_mendel, rank_real_combproduct, rank_real_combmean]
+        counter = [rank_real_emp, rank_real_emp2, rank_real_emp_sire, rank_real_emp_dam,  
+                   rank_real_mendel, rank_real_mendel2, rank_real_mendel_sire, rank_real_mendel_dam,  
+                   rank_real_combproduct, rank_real_combmean]
         
         N = len(counter)
   
@@ -166,7 +173,9 @@ USAGE
             series[key] = [(0 if key not in item else item[key]) for item in counter]
          
         fig, ax = plt.subplots()
-        bottom, x = np.zeros(N), ["emp","mendal","mean","product"]
+        bottom, x = np.zeros(N), ["emp","emp2","emp_sire","emp_dam",
+                                  "mendal","mendal2","mendal_sire","mendal_dam",
+                                  "product","mean"]
          
         for key in sorted(series.keys())[::-1]:
             ax.bar(x, series[key], label=key, bottom=bottom)

@@ -14,8 +14,8 @@ class JointAllellicDistribution(object):
 
     def __init__(self, snp_ordered, chromosome2snp=None, pseudocount = 1, surround_size=1):
         self.pseudocount = pseudocount
-        self.frequency: Dict[Tuple[str,int],Dict[Tuple[str,int],Dict[Tuple[str,int],int]]] = dict()
-        self.n_observations: Dict[Tuple[str,str,str]] = defaultdict(int)
+        self.frequency: Dict[str,int] = {}
+        #self.n_observations: Dict[str,int] = defaultdict(int)
         self.surround_size = surround_size
         self.window_size = (surround_size*2)+1
         self.snp_ordered = snp_ordered
@@ -38,25 +38,17 @@ class JointAllellicDistribution(object):
             return([snpId for snpId in snpWindow if self.chromosome2snp[snpId] == targetchr])
         return(snpWindow)
     
+    def getObservations(self, targetSnp):
+        return(self.n_observations[":".join(self.getWindow(targetSnp))])
+    
     def getCountTable(self, observedstates: dict, targetSnp):
         all_obs = [(snpid,observedstates[snpid]) for snpid in self.getWindow(targetSnp)]
         
         def copypastefunc(x):
-            return([(snpid,state) if snpid != targetSnp else (targetSnp, x) for snpid,state in all_obs])
+            return([str(snpid)+"_"+str(state) if snpid != targetSnp else str(targetSnp)+"_"+str(x) for snpid,state in all_obs])
         
-        for state, query in enumerate(list(map(copypastefunc, [0,1,2]))):
-            #print("%s == %s" % (state, query))
-            workinghash = self.frequency
-            for item in query:
-                workinghash = workinghash[item]
-            if "obs" in workinghash:
-                yield workinghash["obs"] #it should be the result
-            else:
-                print("query %s" % query)
-                print("first %s" % self.frequency[query[0]])
-                print("workinghash %s" % workinghash)
-                print("item %s" % "_".join(map(str,item)))
-                raise Exception("incomplete traversal of nested hash: final %s state %s" % (workinghash, state))
+        for query in list(map(copypastefunc, [0,1,2])):
+            yield self.frequency[":".join(query)]
     
     def countJointFrq(self, table, mask, column_names: List[str], conditions_index=[0,1,2,9]):
         column_names = np.array(column_names)
@@ -65,26 +57,13 @@ class JointAllellicDistribution(object):
             conditions = list(zip(column_names, values))
             nine_truth = np.ones((subset.shape[0],1), dtype=bool)
             rows_that_meet = np.logical_and.reduce([nine_truth if value == 9 else np.equal(subset[:,column_names == snp],value) for snp,value in conditions])
-            keys = list(zip(column_names, values))
+            state_key = ":".join([str(k)+"_"+str(s) for k,s in zip(column_names, values)])
+            #snp_key = ":".join(column_names)
             obs = np.count_nonzero(rows_that_meet)
-            self.recurse_set_dict(self.frequency, keys, obs)
-            if 9 not in values: # only count complete real value arrays
-                self.n_observations[tuple(column_names)] += (obs+self.pseudocount) # this we keep track of how many observations there have been for these three snps
+            self.frequency[state_key] = obs+self.pseudocount
+            #if 9 not in values: # only count complete real value arrays
+            #    self.n_observations[snp_key] += (obs+self.pseudocount) # this we keep track of how many observations there have been for these three snps
     
-    def recurse_set_dict(self, d, queue, value):
-        f = queue.pop(0)
-        if len(queue) > 0:
-            if f not in d:
-                d[f] = dict()
-            self.recurse_set_dict(d[f], queue, value)
-        else:
-            if f not in d:
-                d[f] = dict()
-            if "obs" not in d[f]:
-                d[f]["obs"] = value+self.pseudocount # we record the observations for this state combo
-            elif d[f]["obs"] != value+self.pseudocount:
-                raise Exception("overwriting value %s with %s " % (d[f]["obs"], value))
-        
     def countJointFrqAll(self, table:pd.DataFrame, mask=None):
         '''
         table expect pandas Dataframe with columns as snpids and rows being observations

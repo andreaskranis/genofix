@@ -12,6 +12,8 @@ class Stats(object):
         self.outputdir = outputdir if outputdir is not None else os.getcwd()
         os.makedirs(self.outputdir, exist_ok=True)
         self.pair_stats = gzip.open("%s/pair_stats.txt.gz" % self.outputdir, "wt")
+        self.sire_stats = gzip.open("%s/sire_stats.txt.gz" % self.outputdir, "wt")
+        self.dam_stats = gzip.open("%s/dam_stats.txt.gz" % self.outputdir, "wt")
         self.single_stats = gzip.open("%s/single_stats.txt.gz" % self.outputdir, "wt")
     
     def __enter__(self):
@@ -21,3 +23,5 @@ class Stats(object):
     def __exit__(self, exc_type, exc_value, traceback):
         self.pair_stats.close()
         self.single_stats.close()
+        self.sire_stats.close()
+        self.dam_stats.close()

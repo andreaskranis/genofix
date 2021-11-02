@@ -13,6 +13,113 @@ class PedigreeDAG(nx.DiGraph):
     '''
     classdocs
     '''
+    def __init__(self, incoming_graph_data=None):
+        super().__init__(incoming_graph_data=incoming_graph_data)
+        if incoming_graph_data is not None:
+            self.males = incoming_graph_data.males.copy()
+            self.females = incoming_graph_data.females.copy()
+            self.kid2sire = incoming_graph_data.kid2sire.copy()
+            self.kid2dam = incoming_graph_data.kid2dam.copy()
+            self.sire2kid = incoming_graph_data.sire2kid.copy()
+            self.dam2kid = incoming_graph_data.dam2kid.copy()
+            self.generationIndex = incoming_graph_data.generationIndex.copy()
+        else:
+            self.males = {}
+            self.females = {}
+            self.kid2sire = set()
+            self.kid2dam = set()
+            self.sire2kid = set()
+            self.dam2kid = set()
+            self.generationIndex = defaultdict(set)
+    
+    def __copy__(self):
+        cls = self.__class__
+        result = cls.__new__(cls, incoming_graph_data=self)
+        result.__dict__.update(self.__dict__)
+        return cls
+    
+    def split_pedigree(self, min_cluster_size=100):
+        partner_pairs = list(set([(sire,dam) for sire,dam in [self.get_parents(kid) for kid in self.males.union(self.females)] if sire != None and dam != None]))
+        clustered_pairs = []
+        for sire, dam in partner_pairs:
+            found = False
+            for cluster in clustered_pairs:
+                if sire in cluster: 
+                    cluster.add(dam)
+                    found = True
+                    break
+                elif dam in cluster:
+                    cluster.add(sire)
+                    found = True
+                    break
+            if not found:
+                clustered_pairs.append({sire, dam})
+        
+        pairedkids = set([x[0] for x in partner_pairs]+[x[1] for x in partner_pairs])
+        allkids = self.males.union(self.females)
+        singlekids = [x for x in allkids if x not in pairedkids]
+        for kid in singlekids:
+            sire, dam = self.get_parents(kid)
+            found = False
+            for cluster in clustered_pairs:
+                if sire is not None and sire in cluster : 
+                    cluster.add(kid)
+                    found = True
+                    break
+                elif dam is not None and dam in cluster:
+                    cluster.add(kid)
+                    found = True
+                    break
+            if not found:
+                raise Exception("%s illegal lone node in pedigree" % kid)
+        
+        #print(len(clustered_pairs))
+        
+        for _i in range(len(clustered_pairs)):
+            for cluster in sorted(clustered_pairs, key=lambda x: len(x)):
+                #self.kikid2sire
+                found = False
+                for target in sorted([x for x in clustered_pairs if x != cluster], key=lambda x: len(x)):
+                    if len(cluster.intersection(target)) > 0:
+                        target.update(cluster)
+                        clustered_pairs.remove(cluster)
+                        found = True
+                        break
+                    if found:
+                        break
+        
+        #print(len(clustered_pairs))
+           
+        for size in range(min_cluster_size):
+            for _i in range(len(clustered_pairs)):
+                for cluster in [x for x in clustered_pairs if len(x) == size]:
+                    sires = set([self.kid2sire[x] for x in cluster if x in self.kid2sire])
+                    dams = set([self.kid2dam[x] for x in cluster if x in self.kid2dam])
+                    parents = sires.union(dams)
+                    found = False
+                    for target in sorted([x for x in clustered_pairs if x != cluster], key=lambda x: len(x)):
+                        if len(parents.intersection(target)) > 0:
+                            target.update(cluster)
+                            clustered_pairs.remove(cluster)
+                            found = True
+                            break
+                    if found:
+                        break
+                    kids = [list(self.sire2kid[x]) for x in cluster if x in self.sire2kid]
+                    if len(kids) > 0:
+                        kids = set(np.concatenate(kids))
+                    kids2 = [list(self.dam2kid[x]) for x in cluster if x in self.dam2kid]
+                    if len(kids2) > 0:
+                        kids = kids.union(set(np.concatenate(kids2)))
+                    for target in sorted([x for x in clustered_pairs if x != cluster], key=lambda x: len(x)):
+                        if len(kids.intersection(target)) > 0:
+                            target.update(cluster)
+                            clustered_pairs.remove(cluster)
+                            found = True
+                            break
+                    if found:
+                        break
+        return(clustered_pairs)
     
     def balance_nodes(self, nodes):
         found = 0
@@ -258,3 +365,7 @@ class PedigreeDAG(nx.DiGraph):
                     lines.append((kid, self.kid2sire[kid],self.kid2dam[kid], 1 if kid in self.males else 2))
         return(lines)
 
+pedigree = PedigreeDAG.from_file("../../examples/simulate/example.fam")
+clusters = pedigree.split_pedigree()
+print(len(clusters))
+print([len(c) for c in clusters])

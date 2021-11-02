@@ -44,7 +44,7 @@ def generate_probs_kids(kidstates, oneparentstates):
     
     kidstates = np.asarray(kidstates)
     oneparentstates = np.asarray(oneparentstates)
-    include = np.logical_and([x in [0,1,2] for x in kidstates], [x in [0,1,2] for x in oneparentstates])
+    include = [x in [0,1,2] for x in kidstates]
     
     if np.count_nonzero(include) > 0:
         prob_table = np.array([_default_mendelprobs[x] for x in kidstates[include]])
@@ -71,7 +71,7 @@ def generate_probs_differences_kids(kidstates, oneparentstates, observedstate):
     
     kidstates = np.asarray(kidstates)
     oneparentstates = np.asarray(oneparentstates)
-    include = np.logical_and([x in [0,1,2] for x in kidstates], [x in [0,1,2] for x in oneparentstates])
+    include = [x in [0,1,2] for x in kidstates]
     
     if np.count_nonzero(include) > 0:
         prob_table = np.array([_default_mendelprobs[x] for x in kidstates[include]])

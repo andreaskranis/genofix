@@ -11,7 +11,7 @@ Todo:
 
 from .genotype import Genotype
 from . import np, tqdm
-
+import gzip
 
 def read_pedigree():
     pass
@@ -70,30 +70,31 @@ def read_snps(genome,inFile,id_col=None,chr_col=1,cm_col=None,sep=",",header=Tru
             genome.chroms[chrom].finalise_chrom_configuration()
 
 
-def read_real_haplos(inFile,genome,first_haplo='maternal',mv=9,sep=None,header=False):
+def read_real_haplos(inFile, genome, first_haplo='maternal',mv=9,sep=None,header=False,random_assign_missing=False):
     gens = {}
     _SWITCH = {0:1,1:0}
     strand = 0
-
-    with open(inFile) as fin:
+    first_haplo_mat = True if first_haplo in ['maternal','m', 'mat', 'f'] else False
+    
+    with gzip.open(inFile,"rt") if inFile.endswith("gz") else open(inFile,"rt") as fin:
         if header:
             next(fin)
         for row in tqdm.tqdm(fin):
             tmp = row.strip().split(sep)
-            tag,g = tmp[0],np.array(tmp[1:],dtype=int)
+            tag,g = tmp[0],np.array(tmp[1:],dtype=np.ushort)
             if tag not in gens:
                 gens[tag] = Genotype(genome.chroms)
-                if first_haplo == 'maternal':
+                if first_haplo_mat:
                     strand = gens[tag].maternal_strand
-                elif first_haplo == 'paternal':
+                else:
                     strand = gens[tag].paternal_strand
             else:
                 strand = _SWITCH[strand]
-
+            
             st_pos = 0
             for c in gens[tag].iterate_chroms():
                 end_pos = st_pos + genome.chroms[c].nvars
-                gens[tag].add_haplo_toStrand(c,_SWITCH[strand],g[st_pos:end_pos],mv=9)
+                gens[tag].add_haplo_toStrand(c,_SWITCH[strand],g[st_pos:end_pos],mv=mv, random_assign_missing=random_assign_missing)
                 st_pos += genome.chroms[c].nvars
     return gens
 

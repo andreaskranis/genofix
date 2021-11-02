@@ -17,7 +17,7 @@ It defines classes_and_methods
 @deffield    updated: Updated
 '''
 import sys,os
-sys.path.append(os.getcwd())
+import time
 from argparse import ArgumentParser
 from argparse import RawDescriptionHelpFormatter
 
@@ -29,10 +29,11 @@ from collections import Counter, defaultdict
 import numpy as np
 import math
 from itertools import chain
-from correct_genotypes import CorrectGenotypes
+from correct_genotypes2 import CorrectGenotypes
 from typing import Tuple, List, Dict, Union
-
+import multiprocessing
 from tqdm import tqdm
+import gzip
 
 __all__: List[str] = []
 __version__ = 0.1
@@ -83,6 +84,7 @@ USAGE
     try:
         # Setup argument parser
         parser = ArgumentParser(description=program_license, formatter_class=RawDescriptionHelpFormatter)
+        parser.add_argument("-f", "--founders", dest="founders", required=False, help="founders haplotype file..space delimited, two lines per individual mat/pat, columns SNPs, non-founders will be ignored")
         parser.add_argument("-p", "--pedigree", dest="pedigree", required=True, help="pedigree file")
         parser.add_argument("-s", "--snps", dest="snps", required=True, help="snp map file")
         parser.add_argument("-l", "--thresholdsingles", dest="threshold_singles", type=float, default=0.7, help="threshold prob for singles")
@@ -97,8 +99,11 @@ USAGE
         parser.add_argument("-z", "--popgenomeerrors", dest="prior_genome_errors", type=str, required=False,  help="skip insertion of errors and use specified file. NB error_rate option will be ignored")
         parser.add_argument("-n", "--firstnsnps", dest="first_n_snps", type=int, required=False, default=None,  help="only use the first n snps of the genome")
         parser.add_argument("-q", "--initquantilefilter", dest="initquantilefilter", type=float, required=False, default=0.9,  help="initial filter to select upper quantile in error likelihood dist")
+        parser.add_argument("-Q", "--filter_e", dest="filter_e", type=float, required=False, default=0.8,  help="filter to select upper quantile to exclude from empirical ld calculation")
         parser.add_argument("-W", "--weightempirical", dest="weight_empirical", type=float, required=False, default=2,  help="weight of empirical vs collected medelian error when ranking snps by error probability")
-        parser.add_argument("-i", "--iterations", dest="iterations", type=int, required=False, default=1,  help="number of correction iterations")
+        parser.add_argument("-M", "--minimum_cluster_size", dest="minimum_cluster_size", type=float, required=False,  help="set to turn on ld partitioning of pedigree (recomend 10-15 clusters with min 150)")
+        parser.add_argument("-E", "--elimination_order", dest="elimination_order", type=str, required=False, default="weightedminfill", choices=["weightedminfill","minneighbors","minweight","minfill"], help="elimination order in mendel prob calculation")
+        parser.add_argument("-T", "--threads", dest="threads", type=int, required=False, default=multiprocessing.cpu_count(),  help="weight of empirical vs collected medelian error when ranking snps by error probability")
         parser.add_argument('-V', '--version', action='version', version=program_version_message)
         
         # Process arguments
@@ -109,16 +114,28 @@ USAGE
         
         pedigree = PedigreeDAG.from_file(args.pedigree)
         
+        founders = args.founders
+        elimination_order = str(args.elimination_order)
         first_n_snps  = args.first_n_snps
         
         threshold_singles = float(args.threshold_singles)
         threshold_pairs = float(args.threshold_pairs)
         surround_size = int(args.surround_size)
         tiethreshold = float(args.tiethreshold)
-        genomein = pd.read_csv(args.snps, sep=' ', names = ["chrom", "snpid", "cm", "pos"])
+        genomein = pd.read_csv(args.snps, sep=' ', names = ["chrom", "snpid", "cm", "pos"], engine='c',low_memory=False, memory_map=True)
         init_filter_p = float(args.initquantilefilter) 
         weight_empirical = float(args.weight_empirical)
-        iterations = args.iterations
+        filter_e = float(args.filter_e)
+        threads = int(args.threads)
+        
+        if args.minimum_cluster_size is not None:
+            minimum_cluster_size = int(args.minimum_cluster_size)
+            partition_pedigree = True
+            print("partitions for ld with min size of %s" % minimum_cluster_size)
+        else:
+            partition_pedigree = False
+            minimum_cluster_size = None
+            print("partitions for ld disabled")
 
         prior_genome = args.prior_pop_genome
         prior_genome_errors = args.prior_genome_errors
@@ -132,6 +149,7 @@ USAGE
         lookback = args.lookback
         print("Will %s generations up/back: " % lookback)
         
+        snps = [row["snpid"] for index, row in genomein.iterrows()]
         chromosome2snp = defaultdict(set)
         chromosomes = set([row["chrom"] for index, row in genomein.iterrows()])
         chromosomesnps = {}
@@ -188,29 +206,65 @@ USAGE
         snpids = list(chain(*[genome.chroms[chro].snpids for chro in chromosomes]))
         
         if prior_genome is None:
-            #this is messy np.add(genotypes[kid].genotype[chro].values()) work?
+            with gzip.open("%s/simulated_genotype_crossovers.txt.gz" % out_dir, "wt") as fout:
+                def xtoString(chro, data):
+                    switch, points = data
+                    return(str(chro)+":"+"-".join(map(str,switch))+":"+",".join(map(str,points)))
+                
+                for kid in genotypes.keys():
+                    fout.write(str(kid))
+                    if len(genotypes[kid].mcr) > 0:
+                        for chro in chromosomes:
+                            fout.write("\t"+xtoString(chro,genotypes[kid].mcr[chro]))
+                    fout.write(str(kid))
+                    if len(genotypes[kid].pcr) > 0:
+                        for chro in chromosomes:
+                            fout.write("\t"+xtoString(chro,genotypes[kid].pcr[chro]))
+                    fout.write("\n")
+            #data_crossovers_P = {kid:[[xtoString(chro, data) for data in genotypes[kid].pcr[chro]] for chro in chromosomes if chro < len(genotypes[kid].pcr in genotypes[kid].pcr] for kid in genotypes.keys()}
+            #data_crossovers_M = {kid:np.concatenate([genotypes[kid].mcr[chro] for chro in chromosomes]) for kid in genotypes.keys()}
+            
             data = {kid:np.concatenate([np.add(genotypes[kid].genotype[chro][0], genotypes[kid].genotype[chro][1]) for chro in chromosomes]) for kid in genotypes.keys()}
+            dataM = {kid:np.concatenate([genotypes[kid].genotype[chro][0] for chro in chromosomes]) for kid in genotypes.keys()}
+            dataP = {kid:np.concatenate([genotypes[kid].genotype[chro][1] for chro in chromosomes]) for kid in genotypes.keys()}
+            
             print("building genotype matrix")
             if first_n_snps is not None:
                 genomematrix = pd.DataFrame.from_dict(data, orient='index', columns= snpids, dtype=np.uint8).iloc[:,0:first_n_snps] ##first 50 snps
+                genomematrixM = pd.DataFrame.from_dict(dataM, orient='index', columns= snpids, dtype=np.uint8).iloc[:,0:first_n_snps] ##first 50 snps
+                genomematrixP = pd.DataFrame.from_dict(dataP, orient='index', columns= snpids, dtype=np.uint8).iloc[:,0:first_n_snps] ##first 50 snps
             else :
-                genomematrix = pd.DataFrame.from_dict(data, orient='index', columns= snpids, dtype=np.uint8).iloc[:,0:first_n_snps] ##first 50 snps
-            del data
-            genomematrix.to_csv("%s/simulatedgenome.ssv.gz" % out_dir, sep=" ", compression='gzip')
-        else :
-            genomematrix = pd.read_csv(prior_genome, sep=" ", compression='gzip')
-            print("loaded genome matrix of size %s animals by %s snps" % genomematrix.shape)
-        
-        errors = math.ceil(genomematrix.size*(error_rate/100))
-        print("will insert %spc errors or %s snps " % (error_rate, errors))
+                genomematrix = pd.DataFrame.from_dict(data, orient='index', columns= snpids, dtype=np.uint8)
+                genomematrixM = pd.DataFrame.from_dict(dataM, orient='index', columns= snpids, dtype=np.uint8)
+                genomematrixP = pd.DataFrame.from_dict(dataP, orient='index', columns= snpids, dtype=np.uint8)
             
-        #allelefrq = pd.DataFrame(np.array([genomematrix[snp].value_counts().values for snp in genomematrix.columns]), index=genomematrix.columns, columns=["0","1","2"])
+            del data
+            del dataM
+            del dataP
+            print("save genotype matrix of size %s animals by %s snps" % genomematrix.shape)
+            genomematrix.to_csv("%s/simulated_genotype_genome.ssv.gz" % out_dir, sep=" ", compression='gzip')
+            print("save maternal haplotype matrix of size %s animals by %s snps" % genomematrix.shape)
+            genomematrixM.to_csv("%s/simulated_maternal_haplotype_genome.ssv.gz" % out_dir, sep=" ", compression='gzip')
+            print("save paternal haplotype matrix of size %s animals by %s snps" % genomematrix.shape)
+            genomematrixP.to_csv("%s/simulated_paternal_haplotype_genome.ssv.gz" % out_dir, sep=" ", compression='gzip')
+            del genomematrixM
+            del genomematrixP
+        else :
+            genomematrix = pd.read_csv(prior_genome, sep=" ", compression='gzip', header=0, index_col=0, engine="c", dtype={snp:np.uint8 for snp in snps}, low_memory=False, memory_map=True)
+            print("loaded genome matrix of size %s animals by %s snps" % genomematrix.shape)
+            if first_n_snps is not None:
+                genomematrix = genomematrix.iloc[:,0:first_n_snps]
+                print("reduced genome matrix to size %s animals by %s snps" % genomematrix.shape)
         
-        individuals = rs.choice(genomematrix.index, size=errors, replace=True)
-        positionsmutate = rs.choice(genomematrix.columns, size=errors, replace=True)
+         
+        #allelefrq = pd.DataFrame(np.array([genomematrix[snp].value_counts().values for snp in genomematrix.columns]), index=genomematrix.columns, columns=["0","1","2"])
         print("chromosomes found: %s " % chromosomes) 
         
         if prior_genome_errors is None:
+            errors = math.ceil(genomematrix.size*(error_rate/100))
+            print("will insert %spc errors or %s snps " % (error_rate, errors))
+            individuals = rs.choice(genomematrix.index, size=errors, replace=True)
+            positionsmutate = rs.choice(genomematrix.columns, size=errors, replace=True)
             genotypes_with_errors = genomematrix.copy()
             
             print("inserting errors into simulated genotypes...")
@@ -223,8 +277,11 @@ USAGE
             
             genotypes_with_errors.to_csv("%s/simulatedgenome_with_%serrors.ssv.gz" % (out_dir, error_rate), sep=" ", compression='gzip')
         else:
-            genotypes_with_errors = pd.read_csv(prior_genome_errors, sep=" ", compression='gzip')
+            genotypes_with_errors = pd.read_csv(prior_genome_errors, sep=" ", compression='gzip', header=0, index_col=0, engine="c", dtype={snp:np.uint8 for snp in snps}, low_memory=False, memory_map=True)
             print("loaded error matrix of size %s animals by %s snps" % genomematrix.shape)
+            if first_n_snps is not None:
+                genotypes_with_errors = genotypes_with_errors.iloc[:,0:first_n_snps]
+                print("reduced error matrix to size %s animals by %s snps" % genotypes_with_errors.shape)
             
         difference = genomematrix - genotypes_with_errors
         print("%s errors %1.2fpc in array" % (np.count_nonzero(difference), (np.count_nonzero(difference)/difference.size)*100))
@@ -235,8 +292,8 @@ USAGE
                        "prob_tie_threshold",
                        "init_filter_p",
                        "weight_empirical",
+                       "prefilter_empirical",
                        "ld_distance_mode",
-                       "iteration_run",
                              "total_observations",
                              "positives",
                               "positive_nine", 
@@ -253,127 +310,144 @@ USAGE
                                "true_positives_nine",
                                "precision_9", 
                                "recall_9", 
-                               "fscore_9")
+                               "fscore_9",
+                               "time")
             statout.write('\t'.join(headers)+'\n')
             statout.flush()
             
-            corrected_genotype = None
-            for i_run in range(1,iterations+1):
-                print("Running iteration %s of error correction" % (i_run))
-                c = CorrectGenotypes(chromosome2snp=chromosome2snp, surround_size=surround_size)
-                
-                statout.write('%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s' % 
-                          (threshold_pairs, threshold_singles, tiethreshold, init_filter_p, weight_empirical,lddist,i_run,
-                           np.product(genomematrix.shape) ))
-                statout.flush()
-                
-                if corrected_genotype is None:
-                    corrected_genotype = c.correctMatrix(genotypes_with_errors, 
+            c = CorrectGenotypes(chromosome2snp=chromosome2snp, surround_size=surround_size, min_cluster_size=minimum_cluster_size, elimination_order=elimination_order)
+            
+            statout.write('%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s' % 
+                      (threshold_pairs, threshold_singles, tiethreshold, init_filter_p, weight_empirical,filter_e,lddist,
+                       np.product(genomematrix.shape) ))
+            statout.flush()
+
+            
+            print("starting correct matrix") 
+            
+            counter = Counter(genotypes_with_errors.to_numpy().flatten())
+            print("pre-corrected array: %s" % counter)
+            
+            tic = int(time.time())
+            corrected_genotype = pd.DataFrame(data=np.full(genotypes_with_errors.shape, 10, dtype=np.uint8),index=genotypes_with_errors.index, columns=genotypes_with_errors.columns)
+            
+            def chunk(l, n, b=0, m=2):
+                n = max(1, n)
+                groups = filter( lambda x: len(x) > m, (l[i:] if len(l)-(i+n+b) < m else l[i:i+n+b] for i in range(0, len(l), n)))
+                return list(groups)
+            chunks = chunk(genotypes_with_errors.columns, 1000, (surround_size*2)+1, (surround_size*2)+1)
+            for i, snps in enumerate(chunks):
+                print("correcting chunk %s of %s with %s snps in chunk" % ( i, len(chunks), len(snps)))
+                result = c.correctMatrix(genotypes_with_errors.loc[:,snps], 
                                                                 pedigree, 
                                                                 threshold_pairs, threshold_singles,
-                                                                lddist, back=lookback, tiethreshold=tiethreshold, init_filter_p=init_filter_p,
-                                                                weight_empirical=weight_empirical,
-                                                                threads=22, DEBUGDIR=out_dir, debugreal=genomematrix)
-                else:
-                    corrected_genotype = c.correctMatrix(corrected_genotype, 
-                                                                pedigree, 
-                                                                threshold_pairs, threshold_singles,
-                                                                lddist, back=lookback, tiethreshold=tiethreshold, init_filter_p=init_filter_p,
-                                                                weight_empirical=weight_empirical,
-                                                                threads=22, DEBUGDIR=out_dir, debugreal=genomematrix)
+                                                                lddist, back=lookback, tiethreshold=tiethreshold, 
+                                                                init_filter_p=init_filter_p, filter_e=filter_e,
+                                                                weight_empirical=weight_empirical,partition_pedigree=partition_pedigree,
+                                                                threads=threads, DEBUGDIR=out_dir, debugreal=genomematrix)
+                if i == 0:
+                    corrected_genotype.loc[:,snps] = result
+                else :
+                    corrected_genotype.loc[:,snps[surround_size+1:]] = result[surround_size+1:]
                 
-                corrected_genotype.to_csv("%s/simulatedgenome_corrected_errors_threshold_%s.ssv" % (out_dir, i_run), sep=" ")
-                
-                difference_after_correction = genotypes_with_errors == corrected_genotype
-                difference_true_errors = genomematrix == genotypes_with_errors
-                difference_error_post_correction = genomematrix == corrected_genotype
-                
-                old_error_n = np.count_nonzero(np.logical_not(difference_true_errors))
-                new_error_n = np.count_nonzero(np.logical_not(difference_error_post_correction))
-                
-                n_notchanging = np.count_nonzero(np.bitwise_and(genomematrix == genotypes_with_errors,genomematrix == corrected_genotype))
-                
-                positives = np.count_nonzero(difference_after_correction)
-                positive_nine = np.count_nonzero(corrected_genotype == 9)
-                negatives = np.count_nonzero(np.logical_not(difference_after_correction))
-                
-                correct_in_errormatrix = np.count_nonzero(difference_true_errors)
-                correct_in_corrected = np.count_nonzero(difference_after_correction)
-                error_in_errormatrix = np.count_nonzero(np.logical_not(difference_true_errors))
-                error_in_corrected = np.count_nonzero(np.logical_not(difference_after_correction))
-                
-                still_wrong = np.logical_and(np.logical_not(difference_error_post_correction), np.logical_not(difference_true_errors))
-                nolonger_wrong = np.logical_and(difference_error_post_correction, np.logical_not(difference_true_errors))
-                new_wrong = np.logical_and(np.logical_not(difference_error_post_correction), difference_true_errors)
-                still_right = np.logical_and(difference_error_post_correction, difference_true_errors)
-                
-                nolonger_wrong_nine = np.logical_and(np.logical_or(difference_error_post_correction,corrected_genotype == 9), np.logical_not(difference_true_errors))
-                
-                print("correct_in_errormatrix "+str(correct_in_errormatrix))
-                print("correct_in_corrected "+str(correct_in_corrected))
-                print("error_in_errormatrix "+str(error_in_errormatrix))
-                print("error_in_corrected "+str(error_in_corrected))
-                
-                false_positives  = np.count_nonzero(new_wrong)
-                true_positives = np.count_nonzero(nolonger_wrong)
-                false_negatives = np.count_nonzero(still_wrong)
-                true_negatives = np.count_nonzero(still_right)
-                
-                print("false_positives "+str(false_positives))
-                print("true_positives "+str(true_positives))
-                print("false_negatives "+str(false_negatives))
-                print("true_negatives "+str(true_negatives))
-                
-                print("sum stats: "+str(false_positives+true_positives+false_negatives+true_negatives)+" size genotype array: "+str(len(genomematrix)))
-                
-                true_positives_nine = np.count_nonzero(nolonger_wrong_nine)
-                
-                if (true_positives + false_positives) > 0:
-                    precision = true_positives / (true_positives + false_positives)
-                else:
-                    precision = 0
-                
-                if (true_positives + false_negatives) > 0:
-                    recall = true_positives / (true_positives + false_negatives)
-                else:
-                    recall = 0
-                
-                if (precision+recall) > 0:
-                    fscore = (2*precision*recall)/(precision+recall)
-                else:
-                    fscore = 0
-                
-                if (true_positives_nine + false_positives) > 0:
-                    precision_nine = true_positives_nine / (true_positives_nine + false_positives)
-                else:
-                    precision_nine = 0
-                if (true_positives_nine + false_negatives) > 0:
-                    recall_nine = true_positives_nine / (true_positives_nine + false_negatives)
-                else:
-                    recall_nine = 0
-                if (precision_nine+recall_nine) > 0:
-                    fscore_nine = (2*precision_nine*recall_nine)/(precision_nine+recall_nine)
-                else:
-                    fscore_nine = 0
-                
-                statout.write('\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%1.4f\t%1.4f\t%1.4f\t%s\t%1.4f\t%1.4f\t%1.4f\n' % 
-                              (positives,
-                               positive_nine, 
-                               negatives,
-                               old_error_n,
-                               new_error_n,
-                               false_positives,
-                               true_positives,
-                               false_negatives,
-                               true_negatives,
-                               precision, 
-                               recall, 
-                               fscore, 
-                               true_positives_nine,
-                               precision_nine,
-                               recall_nine,
-                               fscore_nine))
-                statout.flush()
+            toc = int(time.time())
+            print("done correct matrix in %s minutes" % ((toc-tic)/60) )            
+            corrected_genotype.to_csv("%s/simulatedgenome_corrected_errors_threshold.ssv" % (out_dir), sep=" ")
+                     
+            counter = Counter(corrected_genotype.to_numpy().flatten())
+            print("corrected array: %s" % counter)
+            
+            difference_after_correction = genotypes_with_errors == corrected_genotype
+            difference_true_errors = genomematrix == genotypes_with_errors
+            difference_error_post_correction = genomematrix == corrected_genotype
+            
+            old_error_n = np.count_nonzero(np.logical_not(difference_true_errors))
+            new_error_n = np.count_nonzero(np.logical_not(difference_error_post_correction))
+            
+            n_notchanging = np.count_nonzero(np.bitwise_and(genomematrix == genotypes_with_errors,genomematrix == corrected_genotype))
+            
+            positives = np.count_nonzero(difference_after_correction)
+            positive_nine = np.count_nonzero(corrected_genotype == 9)
+            negatives = np.count_nonzero(np.logical_not(difference_after_correction))
+            
+            correct_in_errormatrix = np.count_nonzero(difference_true_errors)
+            correct_in_corrected = np.count_nonzero(difference_after_correction)
+            error_in_errormatrix = np.count_nonzero(np.logical_not(difference_true_errors))
+            error_in_corrected = np.count_nonzero(np.logical_not(difference_after_correction))
+            
+            still_wrong = np.logical_and(np.logical_not(difference_error_post_correction), np.logical_not(difference_true_errors))
+            nolonger_wrong = np.logical_and(difference_error_post_correction, np.logical_not(difference_true_errors))
+            new_wrong = np.logical_and(np.logical_not(difference_error_post_correction), difference_true_errors)
+            still_right = np.logical_and(difference_error_post_correction, difference_true_errors)
+            
+            nolonger_wrong_nine = np.logical_and(np.logical_or(difference_error_post_correction,corrected_genotype == 9), np.logical_not(difference_true_errors))
+            
+            print("correct_in_errormatrix "+str(correct_in_errormatrix))
+            print("correct_in_corrected "+str(correct_in_corrected))
+            print("error_in_errormatrix "+str(error_in_errormatrix))
+            print("error_in_corrected "+str(error_in_corrected))
+            
+            false_positives  = np.count_nonzero(new_wrong)
+            true_positives = np.count_nonzero(nolonger_wrong)
+            false_negatives = np.count_nonzero(still_wrong)
+            true_negatives = np.count_nonzero(still_right)
+            
+            print("false_positives "+str(false_positives))
+            print("true_positives "+str(true_positives))
+            print("false_negatives "+str(false_negatives))
+            print("true_negatives "+str(true_negatives))
+            
+            print("sum stats: "+str(false_positives+true_positives+false_negatives+true_negatives)+" size genotype array: "+str(len(genomematrix)))
+            
+            true_positives_nine = np.count_nonzero(nolonger_wrong_nine)
+            
+            if (true_positives + false_positives) > 0:
+                precision = true_positives / (true_positives + false_positives)
+            else:
+                precision = 0
+            
+            if (true_positives + false_negatives) > 0:
+                recall = true_positives / (true_positives + false_negatives)
+            else:
+                recall = 0
+            
+            if (precision+recall) > 0:
+                fscore = (2*precision*recall)/(precision+recall)
+            else:
+                fscore = 0
+            
+            if (true_positives_nine + false_positives) > 0:
+                precision_nine = true_positives_nine / (true_positives_nine + false_positives)
+            else:
+                precision_nine = 0
+            if (true_positives_nine + false_negatives) > 0:
+                recall_nine = true_positives_nine / (true_positives_nine + false_negatives)
+            else:
+                recall_nine = 0
+            if (precision_nine+recall_nine) > 0:
+                fscore_nine = (2*precision_nine*recall_nine)/(precision_nine+recall_nine)
+            else:
+                fscore_nine = 0
+            
+            statout.write('\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%1.4f\t%1.4f\t%1.4f\t%s\t%1.4f\t%1.4f\t%1.4f\n' % 
+                          (positives,
+                           positive_nine, 
+                           negatives,
+                           old_error_n,
+                           new_error_n,
+                           false_positives,
+                           true_positives,
+                           false_negatives,
+                           true_negatives,
+                           precision, 
+                           recall, 
+                           fscore, 
+                           true_positives_nine,
+                           precision_nine,
+                           recall_nine,
+                           fscore_nine, 
+                           (toc - tic)/60 ))
+            statout.flush()
         return(0)
     except KeyboardInterrupt:
         ### handle keyboard interrupt ###
