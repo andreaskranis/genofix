@@ -35,6 +35,8 @@ import multiprocessing
 from tqdm import tqdm
 import gzip
 
+from quickgsim import importers
+
 __all__: List[str] = []
 __version__ = 0.1
 __date__ = '2021-07-26'
@@ -114,7 +116,7 @@ USAGE
         
         pedigree = PedigreeDAG.from_file(args.pedigree)
         
-        founders = args.founders
+        founders_file = args.founders
         elimination_order = str(args.elimination_order)
         first_n_snps  = args.first_n_snps
         
@@ -184,13 +186,20 @@ USAGE
         
         rs = np.random.Generator(np.random.PCG64(1234)) 
         
-        for founder in list(foundersires) + list(founderdams):
-            g = gsim.Genotype(chromosomes)
-            for chromosome in chromosomes:
-                g.data[chromosome][0] = rs.integers(size=genome.chroms[chromosome].nvars, low=0, high=2)
-                g.data[chromosome][1] = rs.integers(size=genome.chroms[chromosome].nvars, low=0, high=2)
-            gens[founder] = g
-        founders = gsim.create_founders(genders,gens,genome)
+        if founders_file is not None: # read in haplotypes
+            gens_import = importers.read_real_haplos(founders_file, 
+                               genome, first_haplo='maternal', 
+                               mv=9, sep=' ', header=False, random_assign_missing=True)
+            #IMPORT ONLY THE FOUNDERS FROM GENOTYPE
+            gens = {x:gens_import[x] for x in list(foundersires) + list(founderdams)}
+        else: #generate founders from random haplotypes
+            for founder in list(foundersires) + list(founderdams):
+                g = gsim.Genotype(chromosomes)
+                for chromosome in chromosomes:
+                    g.data[chromosome][0] = rs.integers(size=genome.chroms[chromosome].nvars, low=0, high=2)
+                    g.data[chromosome][1] = rs.integers(size=genome.chroms[chromosome].nvars, low=0, high=2)
+                gens[founder] = g
+            founders = gsim.create_founders(genders,gens,genome)
         
         genotypes = founders.copy()
         while(len(genotypes.keys()) < len(pedigree.males)+len(pedigree.females)):
