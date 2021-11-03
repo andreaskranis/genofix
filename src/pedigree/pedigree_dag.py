@@ -3,11 +3,11 @@ Created on Jul 26, 2021
 
 @author: mhindle
 '''
-import networkx as nx # type: ignore
+import networkx as nx
 import numpy as np
 from collections import defaultdict
 from typing import Tuple, List, Any, Optional, Set, Generator
-import networkx.algorithms.dag as dag # type: ignore
+import networkx.algorithms.dag as dag
 
 class PedigreeDAG(nx.DiGraph):
     '''
@@ -187,12 +187,12 @@ class PedigreeDAG(nx.DiGraph):
     @staticmethod
     def from_table(pedigree: Any):
         dag = PedigreeDAG()
-        dag.males = set([int(sire) for _kid, sire, _dam, _sex in pedigree]+[kid for kid, sire, _dam, sex in pedigree if sex == 1])
-        dag.females = set([int(dam) for kid, sire, dam, sex in pedigree]+[kid for kid, sire, dam, sex in pedigree if sex == 2])
-        dag.kid2sire = {int(kid):int(sire) for kid, sire, dam, sex in pedigree}
-        dag.kid2dam = {int(kid):int(dam) for kid, sire, dam, sex in pedigree}
-        dag.sire2kid = PedigreeDAG._indexone2many([(int(sire),int(kid)) for kid, sire, dam, sex in pedigree])
-        dag.dam2kid = PedigreeDAG._indexone2many([(int(dam),int(kid)) for kid, sire, dam, sex in pedigree])
+        dag.males = set([int(sire) for _kid, sire, _dam, _sex in pedigree if int(sire) > 0]+[int(kid) for kid, sire, _dam, sex in pedigree if sex == 1 and int(kid) > 0])
+        dag.females = set([int(dam) for kid, sire, dam, sex in pedigree if int(dam) > 0]+[int(kid) for kid, sire, dam, sex in pedigree if sex == 2  and int(kid) > 0])
+        dag.kid2sire = {int(kid):int(sire) for kid, sire, dam, sex in pedigree if int(sire) > 0 and int(kid) > 0}
+        dag.kid2dam = {int(kid):int(dam) for kid, sire, dam, sex in pedigree if int(dam) > 0 and int(kid) > 0}
+        dag.sire2kid = PedigreeDAG._indexone2many([(int(sire),int(kid)) for kid, sire, dam, sex in pedigree if int(sire) > 0 and int(kid) > 0])
+        dag.dam2kid = PedigreeDAG._indexone2many([(int(dam),int(kid)) for kid, sire, dam, sex in pedigree if int(dam) > 0 and int(kid) > 0])
         
         dag.generationIndex = defaultdict(set)
         for kid in dag.males.union(dag.females):
@@ -201,13 +201,16 @@ class PedigreeDAG(nx.DiGraph):
         
         for line in pedigree:
             kid, sire, dam, sex = map(int,line)
-            dag.add_node(kid, sex=sex)
-            if not dag.has_node(sire):
+            if kid > 0:
+                dag.add_node(kid, sex=sex)
+            if not dag.has_node(sire) and sire > 0:
                 dag.add_node(sire, sex=1)
-            if not dag.has_node(dam):
+            if not dag.has_node(dam) and dam > 0:
                 dag.add_node(dam, sex=2)
-            dag.add_edge(sire, kid)
-            dag.add_edge(dam, kid)
+            if kid > 0 and sire > 0:
+                dag.add_edge(sire, kid)
+            if kid > 0 and dam > 0:   
+                dag.add_edge(dam, kid)
         return dag
     
     @staticmethod
@@ -364,8 +367,3 @@ class PedigreeDAG(nx.DiGraph):
                 if kid in self.kid2sire and kid in self.kid2dam:
                     lines.append((kid, self.kid2sire[kid],self.kid2dam[kid], 1 if kid in self.males else 2))
         return(lines)
-
-pedigree = PedigreeDAG.from_file("../../examples/simulate/example.fam")
-clusters = pedigree.split_pedigree()
-print(len(clusters))
-print([len(c) for c in clusters])

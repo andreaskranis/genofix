@@ -27,7 +27,7 @@ def openfile(filename:str, mode='r'):
         
 def importAlphaImpute2(file:str, snpids:List[str], snpid2chr:Dict[str,int]) -> Dict[str,Dict[int,Phase]]: 
     '''
-    file format .haplotypes file: no header two rows per animal. The first one is the paternal haplotype and the second is the maternal.
+    file format .haplotypes file: no header two rows per animal. The first one is the maternal haplotype and the second is the paternal.
     '''
     haplotypes: Dict[str,Dict[int,Phase]] = {}
     #                tag,     chromosome
@@ -43,8 +43,8 @@ def importAlphaImpute2(file:str, snpids:List[str], snpid2chr:Dict[str,int]) -> D
             tag = line[0]
             if lastline[0] == tag:
                 #second entry
-                phap = np.array(lastline[1:]).astype(int)
-                mhap = np.array(line[1:]).astype(int)
+                mhap = np.array(lastline[1:]).astype(int)
+                phap = np.array(line[1:]).astype(int)
                 
                 if tag not in haplotypes:
                     haplotypes[tag] = {} 

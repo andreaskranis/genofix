@@ -1,4 +1,4 @@
-#!/usr/local/bin/python2.7
+#!/usr/local/bin/python3
 # encoding: utf-8
 '''
 simulate.simulate -- shortdesc
@@ -199,7 +199,7 @@ USAGE
                     g.data[chromosome][0] = rs.integers(size=genome.chroms[chromosome].nvars, low=0, high=2)
                     g.data[chromosome][1] = rs.integers(size=genome.chroms[chromosome].nvars, low=0, high=2)
                 gens[founder] = g
-            founders = gsim.create_founders(genders,gens,genome)
+        founders = gsim.create_founders(genders,gens,genome)
         
         genotypes = founders.copy()
         while(len(genotypes.keys()) < len(pedigree.males)+len(pedigree.females)):
