@@ -203,10 +203,17 @@ USAGE
         founders = gsim.create_founders(genders,gens,genome)
         
         genotypes = founders.copy()
-        while(len(genotypes.keys()) < len(pedigree.males)+len(pedigree.females)):
-            for kid, sire, dam, sex in pedigree.as_ped():
+        
+        def addMissingKids(trios:list):
+            created=0
+            for kid, sire, dam, sex in trios:
                 if kid not in genotypes.keys() and sire in genotypes.keys() and dam in genotypes.keys():
                     genotypes[kid] = gsim.mate(genotypes[sire], genotypes[dam], kid, genome, sex)
+                    created+=1
+            return(created)
+        
+        #mate to fill missing untill there are no more kids to make....
+        while addMissingKids(pedigree.as_ped()) != 0: pass
         
         print("%s genotypes generated for %s individuals" % (len(genotypes.keys()), len(pedigree.males)+len(pedigree.females)))
         
@@ -244,24 +251,27 @@ USAGE
             dataP = {kid:np.concatenate([genotypes[kid].genotype[chro][1] for chro in chromosomes]) for kid in genotypes.keys()}
             
             print("building genotype matrix")
-            if first_n_snps is not None:
-                genomematrix = pd.DataFrame.from_dict(data, orient='index', columns= snpids, dtype=np.uint8).iloc[:,0:first_n_snps] ##first 50 snps
-                genomematrixM = pd.DataFrame.from_dict(dataM, orient='index', columns= snpids, dtype=np.uint8).iloc[:,0:first_n_snps] ##first 50 snps
-                genomematrixP = pd.DataFrame.from_dict(dataP, orient='index', columns= snpids, dtype=np.uint8).iloc[:,0:first_n_snps] ##first 50 snps
-            else :
-                genomematrix = pd.DataFrame.from_dict(data, orient='index', columns= snpids, dtype=np.uint8)
-                genomematrixM = pd.DataFrame.from_dict(dataM, orient='index', columns= snpids, dtype=np.uint8)
-                genomematrixP = pd.DataFrame.from_dict(dataP, orient='index', columns= snpids, dtype=np.uint8)
+            
+            genomematrix = pd.DataFrame.from_dict(data, orient='index', columns= snpids, dtype=np.uint8)
+            genomematrixM = pd.DataFrame.from_dict(dataM, orient='index', columns= snpids, dtype=np.uint8)
+            genomematrixP = pd.DataFrame.from_dict(dataP, orient='index', columns= snpids, dtype=np.uint8)
             
             del data
             del dataM
             del dataP
+            
             print("save genotype matrix of size %s animals by %s snps" % genomematrix.shape)
             genomematrix.to_csv("%s/simulated_genotype_genome.ssv.gz" % out_dir, sep=" ", compression='gzip')
             print("save maternal haplotype matrix of size %s animals by %s snps" % genomematrix.shape)
             genomematrixM.to_csv("%s/simulated_maternal_haplotype_genome.ssv.gz" % out_dir, sep=" ", compression='gzip')
             print("save paternal haplotype matrix of size %s animals by %s snps" % genomematrix.shape)
             genomematrixP.to_csv("%s/simulated_paternal_haplotype_genome.ssv.gz" % out_dir, sep=" ", compression='gzip')
+
+            if first_n_snps is not None:
+                genomematrix = genomematrix.iloc[:,0:first_n_snps] ##first 50 snps
+                genomematrixM = genomematrixM.iloc[:,0:first_n_snps] ##first 50 snps
+                genomematrixP = genomematrixP.iloc[:,0:first_n_snps] ##first 50 snps
+            
             del genomematrixM
             del genomematrixP
         else :
