@@ -5,7 +5,7 @@ Using genomic data to fix pedigree and genotypes
 * [python3](https://www.python.org/download/releases/3.0/)
 * [pandas 1.3.4](https://pandas.pydata.org/)
 * [matplotlib 3.4.3](https://matplotlib.org/)
-* [seaborn 0.11.2] (https://seaborn.pydata.org/)
+* [seaborn 0.11.2](https://seaborn.pydata.org/)
 * [pgmpy 0.1.16](https://github.com/pgmpy/pgmpy)
 * [networkx 2.6.2](https://networkx.org/)
 * [numpy 1.21](https://numpy.org/)
