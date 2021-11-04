@@ -250,6 +250,7 @@ USAGE
             dataM = {kid:np.concatenate([genotypes[kid].genotype[chro][0] for chro in chromosomes]) for kid in genotypes.keys()}
             dataP = {kid:np.concatenate([genotypes[kid].genotype[chro][1] for chro in chromosomes]) for kid in genotypes.keys()}
             
+            del genotypes
             print("building genotype matrix")
             
             genomematrix = pd.DataFrame.from_dict(data, orient='index', columns= snpids, dtype=np.uint8)
@@ -266,14 +267,13 @@ USAGE
             genomematrixM.to_csv("%s/simulated_maternal_haplotype_genome.ssv.gz" % out_dir, sep=" ", compression='gzip')
             print("save paternal haplotype matrix of size %s animals by %s snps" % genomematrix.shape)
             genomematrixP.to_csv("%s/simulated_paternal_haplotype_genome.ssv.gz" % out_dir, sep=" ", compression='gzip')
-
-            if first_n_snps is not None:
-                genomematrix = genomematrix.iloc[:,0:first_n_snps] ##first 50 snps
-                genomematrixM = genomematrixM.iloc[:,0:first_n_snps] ##first 50 snps
-                genomematrixP = genomematrixP.iloc[:,0:first_n_snps] ##first 50 snps
-            
             del genomematrixM
             del genomematrixP
+            
+            if first_n_snps is not None:
+                print("restricting snps to first %s" % first_n_snps)
+                genomematrix = genomematrix.iloc[:,0:first_n_snps] ##first 50 snps
+
         else :
             genomematrix = pd.read_csv(prior_genome, sep=" ", compression='gzip', header=0, index_col=0, engine="c", dtype={snp:np.uint8 for snp in snps}, low_memory=False, memory_map=True)
             print("loaded genome matrix of size %s animals by %s snps" % genomematrix.shape)
@@ -360,7 +360,7 @@ USAGE
                 n = max(1, n)
                 groups = filter( lambda x: len(x) > m, (l[i:] if len(l)-(i+n+b) < m else l[i:i+n+b] for i in range(0, len(l), n)))
                 return list(groups)
-            chunks = chunk(genotypes_with_errors.columns, 1000, (surround_size*2)+1, (surround_size*2)+1)
+            chunks = chunk(genotypes_with_errors.columns, 500, (surround_size*2)+1, (surround_size*2)+1)
             for i, snps in enumerate(chunks):
                 print("correcting chunk %s of %s with %s snps in chunk" % ( i, len(chunks), len(snps)))
                 result = c.correctMatrix(genotypes_with_errors.loc[:,snps], 
