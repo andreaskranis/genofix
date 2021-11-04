@@ -1,7 +1,7 @@
-# genofix
-Using genomic data to fix pedigree and genotypes
+# GenoFix
+Using empirical and Bayesian probabilistic models of Mendelian inheritance to fix pedigree and genotypes
 
-## requirements
+## lib requirements
 * [python3](https://www.python.org/download/releases/3.0/)
 * [pandas 1.3.4](https://pandas.pydata.org/)
 * [matplotlib 3.4.3](https://matplotlib.org/)
@@ -9,6 +9,7 @@ Using genomic data to fix pedigree and genotypes
 * [pgmpy 0.1.16](https://github.com/pgmpy/pgmpy)
 * [networkx 2.6.2](https://networkx.org/)
 * [numpy 1.21](https://numpy.org/)
+* [tqdm 4.62.3](https://github.com/tqdm/tqdm)
 
 ## main entry points
 `./genofix.py`
