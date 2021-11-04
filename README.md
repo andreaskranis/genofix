@@ -10,6 +10,7 @@ Using empirical and Bayesian probabilistic models of Mendelian inheritance to fi
 * [networkx 2.6.2](https://networkx.org/)
 * [numpy 1.21](https://numpy.org/)
 * [tqdm 4.62.3](https://github.com/tqdm/tqdm)
+* [cloudpickle 2.0.0](https://github.com/cloudpipe/cloudpickle)
 
 ## main entry points
 `./genofix.py`
