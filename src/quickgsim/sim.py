@@ -8,7 +8,7 @@ def create_founders(genders,gens,genome):
     founders = {}
     a1 = set(genders.keys())
     a2 = set(gens.keys())
-    print(f"Genotypes and gender info for {len(a2)} and {len(a1)} founders was received")
+    print(f"Genotypes and gender info for {len(a2)} founders and {len(a1)} sexed individuals was received")
     
     common = a1.intersection(a2)
     print(f"** Note: {len(common)} instances of Animal() will be created")

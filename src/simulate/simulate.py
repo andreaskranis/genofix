@@ -175,30 +175,31 @@ USAGE
         for chrom in genome.chroms.keys():
             genome.chroms[chrom].cm_pos = genome.chroms[chrom].cm_pos+abs(min(genome.chroms[chrom].cm_pos))
             genome.chroms[chrom].cm_pos =  genome.chroms[chrom].cm_pos/sum(genome.chroms[chrom].cm_pos) 
-            
-        foundersires = pedigree.males.difference(pedigree.kid2sire.keys())
-        founderdams = pedigree.females.difference(pedigree.kid2dam.keys())
-
-        genders = {x:1 for x in pedigree.males}
-        genders.update({x:2 for x in pedigree.females})
-
-        gens = {x:None for x in list(foundersires) + list(founderdams)}
         
         rs = np.random.Generator(np.random.PCG64(1234)) 
         
         if founders_file is not None: # read in haplotypes
-            gens_import = importers.read_real_haplos(founders_file, 
+            gens = importers.read_real_haplos(founders_file, 
                                genome, first_haplo='maternal', 
                                mv=9, sep=' ', header=False, random_assign_missing=True)
+            print("imported %s haplotypes" % len(gens.keys()))
             #IMPORT ONLY THE FOUNDERS FROM GENOTYPE
-            gens = {x:gens_import[x] for x in list(foundersires) + list(founderdams)}
         else: #generate founders from random haplotypes
+            foundersires = set(pedigree.sire2kid.keys()).difference(pedigree.kid2sire.keys())
+            founderdams = set(pedigree.dam2kid.keys()).difference(pedigree.kid2dam.keys())
+            gens = {int(x):None for x in list(foundersires) + list(founderdams)}
+            
             for founder in list(foundersires) + list(founderdams):
                 g = gsim.Genotype(chromosomes)
                 for chromosome in chromosomes:
                     g.data[chromosome][0] = rs.integers(size=genome.chroms[chromosome].nvars, low=0, high=2)
                     g.data[chromosome][1] = rs.integers(size=genome.chroms[chromosome].nvars, low=0, high=2)
                 gens[founder] = g
+            print("generated %s haplotypes" % len(gens.keys()))
+        
+        genders = {x:1 for x in pedigree.males if x in gens.keys()}
+        genders.update({x:2 for x in pedigree.females if x in gens.keys()})        
+        
         founders = gsim.create_founders(genders,gens,genome)
         
         genotypes = founders.copy()
@@ -208,6 +209,11 @@ USAGE
                     genotypes[kid] = gsim.mate(genotypes[sire], genotypes[dam], kid, genome, sex)
         
         print("%s genotypes generated for %s individuals" % (len(genotypes.keys()), len(pedigree.males)+len(pedigree.females)))
+        
+        #when the founders aren't the top nodes in the pedigree we need to trim these
+        pedigree = pedigree.get_subset(list(genotypes.keys()), balance_parents=False)
+        
+        
         
         chromosomes = sorted([int(chro) for chro in genome.chroms.keys()])
         print(chromosomes)

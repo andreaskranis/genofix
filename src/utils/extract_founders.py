@@ -93,7 +93,7 @@ USAGE
                         try:
                             sequenced_individuals.append(int(row[0]))
                         except ValueError as e:
-                            print(e)
+                            sys.stderr.write(str(e))
             else:     
                 with open(args.sequencedtsv, 'rt') as csvfile:
                     reader = csv.reader(csvfile, delimiter=' ')
@@ -101,13 +101,13 @@ USAGE
                         try:
                             sequenced_individuals.append(int(row[0]))
                         except ValueError as e:
-                            print(e)
+                            sys.stderr.write(str(e))
                         
             pedigree = pedigree.get_subset(sequenced_individuals, balance_parents=False)
         
-        foundersires = pedigree.males.difference(pedigree.kid2sire.keys())
-        founderdams = pedigree.females.difference(pedigree.kid2dam.keys())
-        founders = np.array([x for x in list(foundersires) + list(founderdams)])
+            foundersires = set(pedigree.sire2kid.keys()).difference(pedigree.kid2sire.keys())
+            founderdams = set(pedigree.dam2kid.keys()).difference(pedigree.kid2dam.keys())
+            founders = np.array([x for x in list(foundersires) + list(founderdams)])
         
         if args.outfile is not None:
             with open(args.outfile, 'wt') as csvfile:

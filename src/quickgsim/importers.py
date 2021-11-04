@@ -81,7 +81,7 @@ def read_real_haplos(inFile, genome, first_haplo='maternal',mv=9,sep=None,header
             next(fin)
         for row in tqdm.tqdm(fin):
             tmp = row.strip().split(sep)
-            tag,g = tmp[0],np.array(tmp[1:],dtype=np.ushort)
+            tag,g = int(tmp[0]),np.array(tmp[1:],dtype=np.ushort)
             if tag not in gens:
                 gens[tag] = Genotype(genome.chroms)
                 if first_haplo_mat:
