@@ -351,7 +351,7 @@ USAGE
             print("starting correct matrix") 
             
             counter = Counter(genotypes_with_errors.to_numpy().flatten())
-            print("pre-corrected array: %s" % counter)
+            print("pre corrected array: %s" % counter)
             
             tic = int(time.time())
             corrected_genotype = pd.DataFrame(data=np.full(genotypes_with_errors.shape, 10, dtype=np.uint8),index=genotypes_with_errors.index, columns=genotypes_with_errors.columns)
@@ -371,9 +371,9 @@ USAGE
                                                                 weight_empirical=weight_empirical,partition_pedigree=partition_pedigree,
                                                                 threads=threads, DEBUGDIR=out_dir, debugreal=genomematrix)
                 if i == 0:
-                    corrected_genotype.loc[:,snps] = result
+                    corrected_genotype.loc[:,snps] = result.loc[:,snps]
                 else :
-                    corrected_genotype.loc[:,snps[surround_size+1:]] = result[surround_size+1:]
+                    corrected_genotype.loc[:,snps[surround_size+1:]] = result.loc[:,snps[surround_size+1:]]
                 
             toc = int(time.time())
             print("done correct matrix in %s minutes" % ((toc-tic)/60) )            
