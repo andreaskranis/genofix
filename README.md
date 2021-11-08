@@ -3,14 +3,14 @@ Using empirical and Bayesian probabilistic models of Mendelian inheritance to fi
 
 ## lib requirements
 * [python3](https://www.python.org/download/releases/3.0/)
-* [pandas 1.3.4](https://pandas.pydata.org/)
-* [matplotlib 3.4.3](https://matplotlib.org/)
-* [seaborn 0.11.2](https://seaborn.pydata.org/)
-* [pgmpy 0.1.16](https://github.com/pgmpy/pgmpy)
-* [networkx 2.6.2](https://networkx.org/)
-* [numpy 1.21](https://numpy.org/)
-* [tqdm 4.62.3](https://github.com/tqdm/tqdm)
-* [cloudpickle 2.0.0](https://github.com/cloudpipe/cloudpickle)
+* [pandas 1.3.4](https://pandas.pydata.org/) `pip3 install pandas`
+* [matplotlib 3.4.3](https://matplotlib.org/) `pip3 install matplotlib`
+* [seaborn 0.11.2](https://seaborn.pydata.org/) `pip3 install seaborn`
+* [pgmpy 0.1.16](https://github.com/pgmpy/pgmpy) `pip3 install pgmpy`
+* [networkx 2.6.2](https://networkx.org/) `pip3 install networkx`
+* [numpy 1.21](https://numpy.org/) `pip3 install numpy`
+* [tqdm 4.62.3](https://github.com/tqdm/tqdm) `pip3 install tqdm`
+* [cloudpickle 2.0.0](https://github.com/cloudpipe/cloudpickle) `pip3 install cloudpickle`
 
 ## main entry points
 `./genofix.py`
