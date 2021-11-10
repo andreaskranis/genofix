@@ -126,6 +126,6 @@ class Genome:
         genotype = Genotype(self.chroms)
         
         for c in self.chroms.keys():
-            genotype[c][0] = pat_gam[c]
-            genotype[c][1] = mat_gam[c]
+            genotype[c][genotype.paternal_strand] = pat_gam[c]
+            genotype[c][genotype.maternal_strand] = mat_gam[c]
         return genotype

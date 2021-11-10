@@ -34,7 +34,8 @@ from quickgsim import genotype, importers
 
 from crosssim import crossoverdetection
 from pedigree.pedigree_dag import PedigreeDAG
-from utils.pickle import dumpToPickle
+from utils.pickle_util import dumpToPickle
+from pathlib import Path
 
 __all__ = []
 __version__ = 0.1
@@ -145,7 +146,7 @@ USAGE
         #dumpToPickle("%s/genome.pickle.gz" % output_dir,genome)
         
         
-        reference_pickle_file = "%s/%s.pickle.gz" % (output_dir,reference_file)
+        reference_pickle_file = "%s/%s.pickle.gz" % (output_dir,Path(reference_file).name)
         if os.path.exists(reference_pickle_file) and os.path.isfile(reference_pickle_file):
             print("Loading pickle haplotype reference: %s" % reference_pickle_file)
             with mgzip.open(reference_pickle_file, "rb", thread=psutil.cpu_count(logical = False)) as reference_pickle:
@@ -175,12 +176,12 @@ USAGE
         states = [0, 1, 9]
         for chro in chromosomes:
             plt.bar(list(map(str,states)), [ref_genotype_count_chr[int(chro)][int(s)] for s in states])
-        plt.savefig('%s/barplot_states_%s.png' % (output_dir,reference_file))
+        plt.savefig('%s/barplot_states_%s.png' % (output_dir,Path(reference_file).name))
         plt.close()
         
         subject_file_obj = {}
         for subject_file in subject_files:
-            subject_pickle_file = "%s/%s.pickle.gz" % (output_dir,subject_file)
+            subject_pickle_file = "%s/%s.pickle.gz" % (output_dir,Path(subject_file).name)
             if os.path.exists(subject_pickle_file) and os.path.isfile(subject_pickle_file):
                 print("Loading pickle haplotype subject: %s" % subject_pickle_file)
                 with mgzip.open(subject_pickle_file, "rb", thread=psutil.cpu_count(logical = False)) as subject_pickle:
@@ -191,7 +192,9 @@ USAGE
                                genome, first_haplo='maternal', 
                                mv=9, sep=' ', header=False, random_assign_missing=False)
                 dumpToPickle(subject_pickle_file, gens_subject)
-            subject_file_obj[subject_file] = gens_subject
+            #only evaluate kids in reference
+            gens_subject = {k:v for k,v in gens_subject.items() if k in gens_reference.keys()}
+            subject_file_obj[Path(subject_file).name] = gens_subject
         
         file2stats_maternal_difference = {}
         file2stats_paternal_difference = {}
@@ -257,7 +260,7 @@ USAGE
             plt.ylabel('pc error in called haplotype\n%s' % subject_file)
             plt.xlabel('Chromosome')
             plt.title('Haplotype errors from alphaimpute2')
-            plt.savefig('%s/per_chromosome_errors_haplotype_calling_%s_vs_%s.png' % (output_dir,reference_file,subject_file))
+            plt.savefig('%s/per_chromosome_errors_haplotype_calling_%s_vs_%s.png' % (output_dir,Path(reference_file).name,Path(subject_file).name))
             plt.close()
         
         print("stats for %s " % subject_file_obj.keys())
@@ -271,30 +274,30 @@ USAGE
                 difference_by_chr_pat_2 = file2stats_paternal_difference[subject_file2]
                 called_by_chr_mat_2 = file2stats_maternal_n[subject_file2]
                 called_by_chr_pat_2 = file2stats_paternal_n[subject_file2]
-            plt.figure()
-            mat = plt.plot([difference_by_chr_mat_1[chro]/called_by_chr_mat_1[chro] for chro in chromosomes], 
-                            [difference_by_chr_mat_2[chro]/called_by_chr_mat_2[chro] for chro in chromosomes], 
-                                 'o', color='pink');
-            pat = plt.plot([difference_by_chr_pat_1[chro]/called_by_chr_pat_1[chro] for chro in chromosomes], 
-                            [difference_by_chr_pat_2[chro]/called_by_chr_pat_2[chro] for chro in chromosomes],
-                                  'o', color='blue');
-            plt.ylabel('pc error haplotype\n%s' % subject_file2)
-            plt.xlabel('pc error haplotype\n%s' %  subject_file1)
-            plt.title('Haplotype errors from alphaimpute2 \n %s vs %s' % (subject_file1, subject_file2))
-            plt.savefig('%s/scatter_pcerrors_haplotype_calling_%s_vs_%s.png' % (output_dir,subject_file1,subject_file2))
-            plt.close()
-            
-            plt.figure()
-            mat = plt.plot(list(chromosomes),np.array([difference_by_chr_mat_1[chro] for chro in chromosomes])-np.array([difference_by_chr_mat_2[chro] for chro in chromosomes]), 
-                                 'o', color='pink');
-            pat = plt.plot(list(chromosomes),np.array([difference_by_chr_pat_1[chro] for chro in chromosomes])-np.array([difference_by_chr_pat_2[chro] for chro in chromosomes]),
-                                  'o', color='blue');
-            plt.ylabel('difference in errors haplotype\n%s-%s' % (subject_file1,subject_file2))
-            plt.xlabel('Chromosome' )
-            plt.title('Haplotype errors from alphaimpute2 \n %s vs %s' % (subject_file1, subject_file2))
-            plt.axhline(y=0, color='k')
-            plt.savefig('%s/scatter_errors_haplotype_calling_%s_vs_%s.png' % (output_dir,subject_file1,subject_file2))
-            plt.close()
+                plt.figure()
+                mat = plt.plot([difference_by_chr_mat_1[chro]/called_by_chr_mat_1[chro] for chro in chromosomes], 
+                                [difference_by_chr_mat_2[chro]/called_by_chr_mat_2[chro] for chro in chromosomes], 
+                                     'o', color='pink');
+                pat = plt.plot([difference_by_chr_pat_1[chro]/called_by_chr_pat_1[chro] for chro in chromosomes], 
+                                [difference_by_chr_pat_2[chro]/called_by_chr_pat_2[chro] for chro in chromosomes],
+                                      'o', color='blue');
+                plt.ylabel('pc error haplotype\n%s' % subject_file2)
+                plt.xlabel('pc error haplotype\n%s' %  subject_file1)
+                plt.title('Haplotype errors from alphaimpute2 \n %s vs %s' % (subject_file1, subject_file2))
+                plt.savefig('%s/scatter_pcerrors_haplotype_calling_%s_vs_%s.png' % (output_dir,subject_file1,subject_file2))
+                plt.close()
+                
+                plt.figure()
+                mat = plt.plot(list(chromosomes),np.array([difference_by_chr_mat_1[chro] for chro in chromosomes])-np.array([difference_by_chr_mat_2[chro] for chro in chromosomes]), 
+                                     'o', color='pink');
+                pat = plt.plot(list(chromosomes),np.array([difference_by_chr_pat_1[chro] for chro in chromosomes])-np.array([difference_by_chr_pat_2[chro] for chro in chromosomes]),
+                                      'o', color='blue');
+                plt.ylabel('difference in errors haplotype\n%s-%s' % (subject_file1,subject_file2))
+                plt.xlabel('Chromosome' )
+                plt.title('Haplotype errors from alphaimpute2 \n %s vs %s' % (subject_file1, subject_file2))
+                plt.axhline(y=0, color='k')
+                plt.savefig('%s/scatter_errors_haplotype_calling_%s_vs_%s.png' % (output_dir,subject_file1,subject_file2))
+                plt.close()
         
         print("stats for crossovers ")
         pc_predicted_real = []
@@ -326,7 +329,7 @@ USAGE
         plt.title('Histogram of percent xover predictions that are real')
         plt.grid(True)
         plt.xlim(0, 1)
-        plt.savefig('%s/histogram_percent_xover_predictions_real_%s.png' % (output_dir,reference_file))
+        plt.savefig('%s/histogram_percent_xover_predictions_real_%s.png' % (output_dir,Path(reference_file).name))
         plt.close()
         
         plt.figure()
@@ -336,7 +339,7 @@ USAGE
         plt.title('Histogram of percent real xover that are predicted')
         plt.grid(True)
         plt.xlim(0, 1)
-        plt.savefig('%s/histogram_percent_xover_real_predicted_%s.png' % (output_dir,reference_file))
+        plt.savefig('%s/histogram_percent_xover_real_predicted_%s.png' % (output_dir,Path(reference_file).name))
         plt.close()
         
         plt.figure()
@@ -346,7 +349,7 @@ USAGE
         plt.title('Histogram of lengths of true predicted regions')
         plt.grid(True)
         plt.yscale('log')
-        plt.savefig('%s/histogram_percent_xover_predictions_lengths_%s.png' % (output_dir,reference_file))
+        plt.savefig('%s/histogram_percent_xover_predictions_lengths_%s.png' % (output_dir,Path(reference_file).name))
         plt.close()
         
         for subject_file, gens_subject in subject_file_obj.items():

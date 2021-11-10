@@ -86,9 +86,11 @@ USAGE
     try:
         # Setup argument parser
         parser = ArgumentParser(description=program_license, formatter_class=RawDescriptionHelpFormatter)
-        parser.add_argument("-f", "--founders", dest="founders", required=False, help="founders haplotype file..space delimited, two lines per individual mat/pat, columns SNPs, non-founders will be ignored")
+        parser.add_argument("-H", "--founders_haplo", dest="founders_haplo_file", required=False, help="founders haplotype file..space delimited, two lines per individual mat/pat, columns SNPs, non-founders will be ignored")
+        parser.add_argument("-G", "--founders_geno", dest="founders_geno_file", required=False, help="founders genotype file..space delimited, one lines per individual mat/pat random assigned, columns SNPs, non-founders will be ignored")
         parser.add_argument("-p", "--pedigree", dest="pedigree", required=True, help="pedigree file")
         parser.add_argument("-s", "--snps", dest="snps", required=True, help="snp map file")
+        parser.add_argument("-c", "--chunk", dest="chunk", required=False,default=1000,type=int, help="chunk size to process snps in..decrease if you have memory issues")
         parser.add_argument("-l", "--thresholdsingles", dest="threshold_singles", type=float, default=0.7, help="threshold prob for singles")
         parser.add_argument("-m", "--thresholdpairs", dest="threshold_pairs", type=float, default=0.5, help="threshold prob for mating pairs")
         parser.add_argument("-w", "--surroundsnps", dest="surround_size", type=int, default=2, help="number of snps either side of a snp to create window for empirical")
@@ -116,10 +118,12 @@ USAGE
         
         pedigree = PedigreeDAG.from_file(args.pedigree)
         
-        founders_file = args.founders
+        founders_haplo_file = args.founders_haplo_file
+        founders_geno_file = args.founders_geno_file
         elimination_order = str(args.elimination_order)
         first_n_snps  = args.first_n_snps
-        
+        chunk_n = args.chunk
+    
         threshold_singles = float(args.threshold_singles)
         threshold_pairs = float(args.threshold_pairs)
         surround_size = int(args.surround_size)
@@ -178,12 +182,15 @@ USAGE
         
         rs = np.random.Generator(np.random.PCG64(1234)) 
         
-        if founders_file is not None: # read in haplotypes
-            gens = importers.read_real_haplos(founders_file, 
+        if founders_haplo_file is not None: # read in haplotypes
+            gens = importers.read_real_haplos(founders_haplo_file, 
                                genome, first_haplo='maternal', 
                                mv=9, sep=' ', header=False, random_assign_missing=True)
             print("imported %s haplotypes" % len(gens.keys()))
-            #IMPORT ONLY THE FOUNDERS FROM GENOTYPE
+        elif founders_geno_file is not None: 
+            gens = importers.read_real_genos(founders_geno_file, 
+                               genome, mv=9, sep=' ', header=False)
+            print("imported %s genotypes" % len(gens.keys()))
         else: #generate founders from random haplotypes
             foundersires = set(pedigree.sire2kid.keys()).difference(pedigree.kid2sire.keys())
             founderdams = set(pedigree.dam2kid.keys()).difference(pedigree.kid2dam.keys())
@@ -204,12 +211,15 @@ USAGE
         
         genotypes = founders.copy()
         
+        print("genotypes %s" % len(genotypes.keys()))
+        
         def addMissingKids(trios:list):
             created=0
             for kid, sire, dam, sex in trios:
-                if kid not in genotypes.keys() and sire in genotypes.keys() and dam in genotypes.keys():
-                    genotypes[kid] = gsim.mate(genotypes[sire], genotypes[dam], kid, genome, sex)
+                if int(kid) not in genotypes.keys() and int(sire) in genotypes.keys() and int(dam) in genotypes.keys():
+                    genotypes[kid] = gsim.mate(genotypes[int(sire)], genotypes[int(dam)], int(kid), genome, int(sex))
                     created+=1
+            print("created %s" % created)
             return(created)
         
         #mate to fill missing untill there are no more kids to make....
@@ -217,10 +227,11 @@ USAGE
         
         print("%s genotypes generated for %s individuals" % (len(genotypes.keys()), len(pedigree.males)+len(pedigree.females)))
         
+        if len(genotypes.keys()) != len(pedigree.males)+len(pedigree.females):
+            print("males missing and cannot be generated %s" % [kid for kid in pedigree.males if kid not in genotypes.keys()])
+            print("females missing and cannot be generated %s" % [kid for kid in pedigree.males if kid not in genotypes.keys()])
         #when the founders aren't the top nodes in the pedigree we need to trim these
         pedigree = pedigree.get_subset(list(genotypes.keys()), balance_parents=False)
-        
-        
         
         chromosomes = sorted([int(chro) for chro in genome.chroms.keys()])
         print(chromosomes)
@@ -238,6 +249,8 @@ USAGE
                     if len(genotypes[kid].mcr) > 0:
                         for chro in chromosomes:
                             fout.write("\t"+xtoString(chro,genotypes[kid].mcr[chro]))
+                    else:
+                        fout.write("\t")
                     fout.write(str(kid))
                     if len(genotypes[kid].pcr) > 0:
                         for chro in chromosomes:
@@ -246,9 +259,22 @@ USAGE
             #data_crossovers_P = {kid:[[xtoString(chro, data) for data in genotypes[kid].pcr[chro]] for chro in chromosomes if chro < len(genotypes[kid].pcr in genotypes[kid].pcr] for kid in genotypes.keys()}
             #data_crossovers_M = {kid:np.concatenate([genotypes[kid].mcr[chro] for chro in chromosomes]) for kid in genotypes.keys()}
             
-            data = {kid:np.concatenate([np.add(genotypes[kid].genotype[chro][0], genotypes[kid].genotype[chro][1]) for chro in chromosomes]) for kid in genotypes.keys()}
-            dataM = {kid:np.concatenate([genotypes[kid].genotype[chro][0] for chro in chromosomes]) for kid in genotypes.keys()}
-            dataP = {kid:np.concatenate([genotypes[kid].genotype[chro][1] for chro in chromosomes]) for kid in genotypes.keys()}
+            dataM = {kid:np.concatenate([genotypes[kid].genotype[chro][genotypes[kid].genotype.maternal_strand] for chro in chromosomes]) for kid in genotypes.keys()}
+            for kid in dataM.keys():
+                if np.greater(dataM[kid], 1).any():
+                    print(dataM[kid][np.greater(dataM[kid], 1)])
+                    raise Exception("maternal haplotype greater than 1????")
+            dataP = {kid:np.concatenate([genotypes[kid].genotype[chro][genotypes[kid].genotype.paternal_strand] for chro in chromosomes]) for kid in genotypes.keys()}
+            for kid in dataP.keys():
+                if np.greater(dataP[kid], 1).any():
+                    print(dataP[kid][np.greater(dataP[kid], 1)])
+                    raise Exception("paternal haplotype greater than 1????")
+            data = {kid:np.concatenate([np.add(genotypes[kid].genotype[chro][genotypes[kid].genotype.maternal_strand], genotypes[kid].genotype[chro][genotypes[kid].genotype.paternal_strand]) for chro in chromosomes]) for kid in genotypes.keys()}
+            for kid in data.keys():
+                if np.greater(data[kid], 2).any():
+                    print(data[kid][np.greater(data[kid], 2)])
+                    raise Exception("genotype greater than 2????")
+
             
             del genotypes
             print("building genotype matrix")
@@ -293,7 +319,7 @@ USAGE
             genotypes_with_errors = genomematrix.copy()
             
             print("inserting errors into simulated genotypes...")
-            for kid, SNP_id in tqdm(zip(individuals, positionsmutate)):
+            for kid, SNP_id in tqdm(list(zip(individuals, positionsmutate))):
                 actual = genotypes_with_errors.loc[kid, SNP_id]
                 target = actual
                 while target == actual:
@@ -360,7 +386,7 @@ USAGE
                 n = max(1, n)
                 groups = filter( lambda x: len(x) > m, (l[i:] if len(l)-(i+n+b) < m else l[i:i+n+b] for i in range(0, len(l), n)))
                 return list(groups)
-            chunks = chunk(genotypes_with_errors.columns, 500, (surround_size*2)+1, (surround_size*2)+1)
+            chunks = chunk(genotypes_with_errors.columns, chunk_n, (surround_size*2)+1, (surround_size*2)+1)
             for i, snps in enumerate(chunks):
                 print("correcting chunk %s of %s with %s snps in chunk" % ( i, len(chunks), len(snps)))
                 result = c.correctMatrix(genotypes_with_errors.loc[:,snps], 
@@ -374,7 +400,7 @@ USAGE
                     corrected_genotype.loc[:,snps] = result.loc[:,snps]
                 else :
                     corrected_genotype.loc[:,snps[surround_size+1:]] = result.loc[:,snps[surround_size+1:]]
-                
+            
             toc = int(time.time())
             print("done correct matrix in %s minutes" % ((toc-tic)/60) )            
             corrected_genotype.to_csv("%s/simulatedgenome_corrected_errors_threshold.ssv" % (out_dir), sep=" ")

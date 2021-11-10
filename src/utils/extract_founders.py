@@ -105,9 +105,9 @@ USAGE
                         
             pedigree = pedigree.get_subset(sequenced_individuals, balance_parents=False)
         
-            foundersires = set(pedigree.sire2kid.keys()).difference(pedigree.kid2sire.keys())
-            founderdams = set(pedigree.dam2kid.keys()).difference(pedigree.kid2dam.keys())
-            founders = np.array([x for x in list(foundersires) + list(founderdams)])
+            founder_no_sire = [x for x in pedigree.males.union(pedigree.females) if x not in pedigree.kid2sire.keys()]
+            founder_no_dam = [x for x in pedigree.males.union(pedigree.females) if x not in pedigree.kid2dam.keys()]
+            founders = np.array([x for x in list(founder_no_sire) + list(founder_no_dam)])
         
         if args.outfile is not None:
             with open(args.outfile, 'wt') as csvfile:

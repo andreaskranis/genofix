@@ -70,7 +70,7 @@ def read_snps(genome,inFile,id_col=None,chr_col=1,cm_col=None,sep=",",header=Tru
             genome.chroms[chrom].finalise_chrom_configuration()
 
 
-def read_real_haplos(inFile, genome, first_haplo='maternal',mv=9,sep=None,header=False,random_assign_missing=False):
+def read_real_haplos(inFile, genome, first_haplo='maternal',mv=9,sep=None,header=False,random_assign_missing=True):
     gens = {}
     _SWITCH = {0:1,1:0}
     strand = 0
@@ -98,6 +98,40 @@ def read_real_haplos(inFile, genome, first_haplo='maternal',mv=9,sep=None,header
                 st_pos += genome.chroms[c].nvars
     return gens
 
+def read_real_genos(inFile, genome,mv=9,sep=None,header=False):
+    gens = {}
+    rs = np.random.Generator(np.random.PCG64(1234)) 
+    with gzip.open(inFile,"rt") if inFile.endswith("gz") else open(inFile,"rt") as fin:
+        if header:
+            next(fin)
+        for row in tqdm.tqdm(fin):
+            tmp = row.strip().split(sep)
+            tag,g = int(tmp[0]),np.array(tmp[1:],dtype=np.ushort)
+            gens[tag] = Genotype(genome.chroms)
+            g = np.array([p if p != mv else rs.integers(low=0, high=3) for p in g],dtype=np.ushort)
+            maternal = np.array([0 if x==0 else 1 if x==2 else rs.integers(low=0, high=2) for x in g],dtype=np.ushort)
+            paternal = g-maternal
+            if not np.equal(maternal+paternal, g).all():
+                raise Exception("error in splitting haplotypes randomly")
+            if np.greater(maternal, 1).any():
+                raise Exception("maternal haplotype greater than 1????")
+            if np.greater(paternal, 1).any():
+                raise Exception("paternal haplotype greater than 1????")
+            if np.greater(maternal+paternal, 2).any():
+                raise Exception("genotype greater than 2????")
+            
+            st_pos = 0
+            for c in gens[tag].iterate_chroms():
+                end_pos = st_pos + genome.chroms[c].nvars
+                gens[tag].add_haplo_toStrand(c,gens[tag].maternal_strand,maternal[st_pos:end_pos],mv=mv, random_assign_missing=False)
+                st_pos += genome.chroms[c].nvars
+            
+            st_pos = 0
+            for c in gens[tag].iterate_chroms():
+                end_pos = st_pos + genome.chroms[c].nvars
+                gens[tag].add_haplo_toStrand(c,gens[tag].paternal_strand,paternal[st_pos:end_pos],mv=mv, random_assign_missing=False)
+                st_pos += genome.chroms[c].nvars
+    return gens
 ########################################################
 # OPTION 2: Import PLINK for both genome and genotypes #
 ########################################################

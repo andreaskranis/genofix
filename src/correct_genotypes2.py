@@ -30,9 +30,11 @@ import logoutput.stats
 
 _DEBUG_NO_CHANGE = False
 
-def initializer(corrected_genotype_c, pedigree_c, cacheIn=None):
+def initializer(corrected_genotype_c, pedigree_c, probs_errors, cacheIn=None):
     multiprocessing.current_process().genotypes = corrected_genotype_c.copy()
     multiprocessing.current_process().pedigree = PedigreeDAG(pedigree_c)
+    if probs_errors is not None:
+        multiprocessing.current_process().probs_errors = probs_errors.copy()
     if cacheIn is not None:
         multiprocessing.current_process().cacheIn = cacheIn
     else:
@@ -138,13 +140,14 @@ class CorrectGenotypes(object):
         return(result, result_errors, cache)
     
     @staticmethod
-    def correctPair(sire:int, dam:int, error_probs, 
+    def correctPair(sire:int, dam:int, 
                     back=2, 
                     tiethreshold=0.1, 
                     elimination_order="MinNeighbors", 
                     test_p=0.5,
                     suspect_t=0.2):
         current = multiprocessing.current_process()
+        error_probs = current.probs_errors
         pedigree = current.pedigree
         genotypes = current.genotypes
         cacheIn = current.cacheIn
@@ -296,13 +299,14 @@ class CorrectGenotypes(object):
         return(None)
     
     @staticmethod
-    def correctSingle(kid:int, error_probs,
+    def correctSingle(kid:int,
                     back=2,
                     tiethreshold=0.1,
                     elimination_order="MinNeighbors",
                     test_p=0.5,
                     suspect_t=0.2):
         current = multiprocessing.current_process()
+        error_probs = current.probs_errors
         pedigree = current.pedigree
         genotypes = current.genotypes
         cacheIn = current.cacheIn
@@ -505,7 +509,7 @@ class CorrectGenotypes(object):
                       err_thresh=0.1,
                       weight_empirical=3,
                       outputerrors=False,
-                      partition_pedigree=True,
+                      partition_pedigree=False,
                       DEBUGDIR=None, debugreal=None) -> pd.DataFrame:
             
             print("correcting genotype %s x %s with %s threads" % (len(genotypes.index), len(genotypes.columns), threads))
@@ -535,7 +539,7 @@ class CorrectGenotypes(object):
                 print("pre-calculate mendel probs on all individuals")
                 with concurrent.futures.ProcessPoolExecutor(max_workers=threads, 
                                                             initializer=initializer,
-                                                            initargs=(corrected_genotype,pedigree)) as executor:
+                                                            initargs=(corrected_genotype,pedigree, None)) as executor:
                     #for kid in tqdm(pedigree.males.union(pedigree.females)):
                     #    x, b = self.mendelProbsSingle(corrected_genotype, pedigree, kid, back)
                     #    print("kid %s done" % kid)
@@ -651,8 +655,8 @@ class CorrectGenotypes(object):
                     print("generation %s of %s with %s kids and %s pairs" % (generation, len(pedigree.generationIndex.keys()),len(kids), len(gen_pairs)))
                     with concurrent.futures.ProcessPoolExecutor(max_workers=threads, 
                                             initializer=initializer,
-                                            initargs=(corrected_genotype,pedigree)) as executor:
-                        futures = [executor.submit(self.correctPair, sire, dam, probs_errors, 
+                                            initargs=(corrected_genotype,pedigree, probs_errors)) as executor:
+                        futures = [executor.submit(self.correctPair, sire, dam, 
                                   back=back+1, tiethreshold=tiethreshold, elimination_order=self.elimination_order, test_p=quantP_t, suspect_t=0.2
                                   ) for sire,dam in gen_pairs] #cacheIn={**cache_store[sire],**cache_store[dam]} 
                         
@@ -783,7 +787,7 @@ class CorrectGenotypes(object):
                                             #print("max states empirical %s" % "".join(map(str,[list(x) for x in np.asarray(stateProbs_empirical_joint == np.nanmax(stateProbs_empirical_joint)).nonzero()])))
                                             if sire_error_rank+err_thresh  >= sire_blanket_maxrank: #highest difference in blanket?
                                                 if (len(set(maxstates_sire)) == 1):
-                                                    corrected_genotype.loc[int(resultPair.sire),SNP_id] = list(set(maxstates_sire))[0]
+                                                    corrected_genotype.loc[int(resultPair.sire),SNP_id] = int(list(set(maxstates_sire))[0])
                                                 else:
                                                     corrected_genotype.loc[int(resultPair.sire),SNP_id] = 9
                                                 n_errors+=1
@@ -799,7 +803,7 @@ class CorrectGenotypes(object):
                                             #print("%s %s %s %s" % (observed_dam[SNP_id], maxstates[1], np.nanmax(dam_probs), threshold_pair))
                                             if dam_error_rank+err_thresh >= dam_blanket_maxrank: #highest difference in blanket?
                                                 if (len(set(maxstates_dam)) == 1):
-                                                    corrected_genotype.loc[int(resultPair.dam),SNP_id]  = list(set(maxstates_dam))[0]
+                                                    corrected_genotype.loc[int(resultPair.dam),SNP_id]  = int(list(set(maxstates_dam))[0])
                                                 else:
                                                     corrected_genotype.loc[int(resultPair.dam),SNP_id] = 9
                                                 n_errors+=1
@@ -820,8 +824,8 @@ class CorrectGenotypes(object):
                 singlekids = [x for x in allkids if x not in pairedkids]
                 with concurrent.futures.ProcessPoolExecutor(max_workers=threads, 
                                             initializer=initializer,
-                                            initargs=(corrected_genotype,pedigree)) as executor:
-                    futures = {executor.submit(self.correctSingle, kid, probs_errors,
+                                            initargs=(corrected_genotype,pedigree, probs_errors)) as executor:
+                    futures = {executor.submit(self.correctSingle, kid,
                                                 back=back, tiethreshold=tiethreshold, elimination_order=self.elimination_order, test_p=quantP_t, suspect_t=0.2):kid for kid in singlekids} #cacheIn=cache_store[kid]
    
                     print("waiting on %s queued jobs with %s threads" % (len(futures), threads))
@@ -900,7 +904,7 @@ class CorrectGenotypes(object):
                                     if observed_state not in [0,1,2] or (observed_state not in maxstates and ((maxprobs-observed_prob) >= threshold_single)):
                                         if kid_error_rank+err_thresh  >= blanket_maxrank:
                                             if (len(set(maxstates)) == 1):
-                                                corrected_genotype.loc[int(resultkid.kid),SNP_id] = list(set(maxstates))[0]
+                                                corrected_genotype.loc[int(resultkid.kid),SNP_id] = int(list(set(maxstates))[0])
                                             else:
                                                 corrected_genotype.loc[int(resultkid.kid),SNP_id] = 9
                                             n_errors+=1
