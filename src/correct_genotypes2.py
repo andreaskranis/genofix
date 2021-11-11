@@ -77,7 +77,7 @@ class CorrectGenotypes(object):
         
         result = np.empty((len(genotypes.columns),3), np.single)
         result_errors = np.empty((len(genotypes.columns),1), np.single)
-        children = np.array(list(set(list(pedigree.get_kids(kid)))))
+        children = np.array(list(pedigree.get_kids(kid)))
         
         allindiv = set(children)
         if model is not None:
@@ -88,7 +88,8 @@ class CorrectGenotypes(object):
             observed = genotypes.loc[kid,SNP_id]
             
             if len(parents) > 0:
-                all_values = dict(zip(list(map(str,allindiv)), genotypes.loc[allindiv,SNP_id]))
+                genotyped = [x for x in allindiv if x in genotypes.index]
+                all_values = dict(zip(list(map(str,genotyped)), genotypes.loc[genotyped,SNP_id]))
                 evidence = {x:v for x,v in all_values.items() if int(x) != kid and v != 9 and x in model.nodes}
                 key = tuple([*sorted(evidence.items()),kid])
                 if key not in cache:
@@ -106,11 +107,12 @@ class CorrectGenotypes(object):
                 anc_probs = None
                 anc_error = None
             #print("sire %s dam %s %s/%s  " % (sire, dam, all_values[str(sire)], all_values[str(dam)]))
-            state_kids = np.array([genotypes.loc[child,SNP_id] for child in children])
+            genotyped_kids = np.array([x for x in children if x in genotypes.index])
+            state_kids = np.array([genotypes.loc[child,SNP_id] for child in genotyped_kids])
             include = [x in [0,1,2] for x in state_kids]
-            if len(children) > 0 and len(state_kids[include]) > 0 : #all kids not 9
-                state_parents = [None]*len(children[include])
-                for i, child in enumerate(children[include]):
+            if len(genotyped_kids) > 0 and len(state_kids[include]) > 0 : #all kids not 9
+                state_parents = [None]*len(genotyped_kids[include])
+                for i, child in enumerate(genotyped_kids[include]):
                     otherparent = [x for x in pedigree.get_parents(child) if x is not None]
                     if len(otherparent) == 0:
                         state_parents[i] = genotypes.loc[otherparent[0],SNP_id]
@@ -136,7 +138,7 @@ class CorrectGenotypes(object):
             elif anc_probs is None and probs is not None:
                 result[j] = probs
             else :
-                raise Exception("%s is an illegal lone node in the pedigree graph" % kid)
+                print("WARN: %s is an illegal lone node in the pedigree graph" % kid)
         return(result, result_errors, cache)
     
     @staticmethod
@@ -185,7 +187,8 @@ class CorrectGenotypes(object):
                 cache = cacheIn
             
             for SNP_id in suspect_snps:
-                all_values = dict(zip(list(map(str,allindiv)), genotypes.loc[allindiv,SNP_id].values))
+                genotyped = [x for x in allindiv if x in genotypes.index]
+                all_values = dict(zip(list(map(str,genotyped)), genotypes.loc[genotyped,SNP_id].values))
                 observed_state_sire = all_values[str(sire)]
                 observed_state_dam = all_values[str(dam)]
                 
@@ -226,10 +229,11 @@ class CorrectGenotypes(object):
                     anc_probs_dam = None
                 #print("sire %s dam %s %s/%s  " % (sire, dam, all_values[str(sire)], all_values[str(dam)]))
                 
-                if len(children_sire) > 0:
-                    state_kids = [genotypes.loc[child,SNP_id] for child in children_sire]
-                    state_parents = [None]*len(children_sire)
-                    for i, child in enumerate(children_sire):
+                genotyped_sire_kids = np.array([x for x in children_sire if x in genotypes.index])
+                if len(genotyped_sire_kids) > 0:
+                    state_kids = [genotypes.loc[child,SNP_id] for child in genotyped_sire_kids]
+                    state_parents = [None]*len(genotyped_sire_kids)
+                    for i, child in enumerate(genotyped_sire_kids):
                         otherparent = [x for x in pedigree.get_parents(child) if x is not None and x != sire]
                         if len(otherparent) == 1:
                             state_parents[i] = genotypes.loc[otherparent[0],SNP_id]
@@ -237,10 +241,11 @@ class CorrectGenotypes(object):
                 else :
                     probs_sire = None
                 
-                if len(children_dam) > 0:
-                    state_kids = [genotypes.loc[child,SNP_id] for child in children_dam]
-                    state_parents = [None]*len(children_dam)
-                    for i, child in enumerate(children_dam):
+                genotyped_dam_kids = np.array([x for x in children_dam if x in genotypes.index])
+                if len(genotyped_dam_kids) > 0:
+                    state_kids = [genotypes.loc[child,SNP_id] for child in genotyped_dam_kids]
+                    state_parents = [None]*len(genotyped_dam_kids)
+                    for i, child in enumerate(genotyped_dam_kids):
                         otherparent = [x for x in pedigree.get_parents(child) if x is not None and x != dam]
                         if len(otherparent) == 1:
                             state_parents[i] = genotypes.loc[otherparent[0],SNP_id]
@@ -338,7 +343,8 @@ class CorrectGenotypes(object):
                 cache = cacheIn
             
             for SNP_id in suspect_snps:
-                all_values = dict(zip(list(map(str, allindiv)), genotypes.loc[allindiv, SNP_id].values))
+                genotyped = [x for x in allindiv if x in genotypes.index]
+                all_values = dict(zip(list(map(str, genotyped)), genotypes.loc[genotyped, SNP_id].values))
                 observed_state = all_values[str(kid)]
                 
                 error_probs_all = {k:error_probs.loc[int(k), SNP_id] for k, state in all_values.items() if state in [0, 1, 2]}
@@ -366,10 +372,11 @@ class CorrectGenotypes(object):
                     anc_probs = None
                 # print("sire %s dam %s %s/%s  " % (sire, dam, all_values[str(sire)], all_values[str(dam)]))
                 
-                if len(children) > 0:
-                    state_kids = [genotypes.loc[child, SNP_id] for child in children]
-                    state_parents = [None] * len(children)
-                    for i, child in enumerate(children):
+                genotyped_kids = np.array([x for x in children if x in genotypes.index])
+                if len(genotyped_kids) > 0:
+                    state_kids = [genotypes.loc[child, SNP_id] for child in genotyped_kids]
+                    state_parents = [None] * len(genotyped_kids)
+                    for i, child in enumerate(genotyped_kids):
                         otherparent = [x for x in pedigree.get_parents(child) if x is not None and x != kid]
                         if len(otherparent) == 1:
                             state_parents[i] = genotypes.loc[otherparent[0], SNP_id]
@@ -385,7 +392,8 @@ class CorrectGenotypes(object):
                 elif anc_probs is None and probs is not None: 
                     stateProbs = probs
                 else:
-                    raise Exception("%s is an illegal lone node in the pedigree graph" % kid)
+                    print("Warn: %s is an illegal lone node in the pedigree graph" % kid)
+                    return(None)
                 
                 if np.sum(stateProbs) > 0:
                     stateProbs = np.divide(stateProbs, np.sum(stateProbs))
@@ -543,7 +551,7 @@ class CorrectGenotypes(object):
                     #for kid in tqdm(pedigree.males.union(pedigree.females)):
                     #    x, b = self.mendelProbsSingle(corrected_genotype, pedigree, kid, back)
                     #    print("kid %s done" % kid)
-                    futures = {executor.submit(self.mendelProbsSingle, kid, back, elimination_order=self.elimination_order):kid for kid in pedigree.males.union(pedigree.females)}
+                    futures = {executor.submit(self.mendelProbsSingle, kid, back, elimination_order=self.elimination_order):kid for kid in corrected_genotype.index}
                     print("waiting on %s queued jobs with %s threads" % (len(futures), threads))
                     with tqdm(total=len(futures)) as pbar:
                         for future in concurrent.futures.as_completed(futures) :
@@ -609,7 +617,7 @@ class CorrectGenotypes(object):
                 if lddist != 'none':
                     empvalues = list()
                     print("adjusting rank by lnprobs")
-                    for kid in tqdm(pedigree.males.union(pedigree.females)):
+                    for kid in tqdm(corrected_genotype.index):
                         empK = cluster_emp[clusters_index[kid]]
                         if lddist != 'none':
                             for j, SNP_id in enumerate(corrected_genotype.columns):
@@ -651,7 +659,7 @@ class CorrectGenotypes(object):
                 
                 print("Computing joint probs for pairs \n there are %s generations and %s unique breeding pairs" % (len(pedigree.generationIndex.keys()),len(partner_pairs)))
                 for generation, kids in sorted(pedigree.generationIndex.items()):
-                    gen_pairs = [(sire,dam) for sire, dam in partner_pairs if sire in kids or dam in kids]
+                    gen_pairs = [(sire,dam) for sire, dam in partner_pairs if (sire in kids or dam in kids) and sire in corrected_genotype.index and dam in corrected_genotype.index]
                     print("generation %s of %s with %s kids and %s pairs" % (generation, len(pedigree.generationIndex.keys()),len(kids), len(gen_pairs)))
                     with concurrent.futures.ProcessPoolExecutor(max_workers=threads, 
                                             initializer=initializer,
@@ -703,8 +711,8 @@ class CorrectGenotypes(object):
                                         sireparents = [x for x in pedigree.get_parents(resultPair.sire) if x is not None]
                                         sire_error_rank = probs_errors.loc[resultPair.sire,SNP_id]
                                         dam_error_rank = probs_errors.loc[resultPair.dam,SNP_id]
-                                        sire_blanket_ranks = [probs_errors.loc[b,SNP_id] for b in sire_blanket if b != resultPair.sire]
-                                        dam_blanket_ranks = [probs_errors.loc[b,SNP_id] for b in dam_blanket if b != resultPair.dam]
+                                        sire_blanket_ranks = [probs_errors.loc[b,SNP_id] for b in sire_blanket if b != resultPair.sire and b in probs_errors.index]
+                                        dam_blanket_ranks = [probs_errors.loc[b,SNP_id] for b in dam_blanket if b != resultPair.dam and b in probs_errors.index]
                                         
                                         sire_blanket_maxrank = np.nanmax([0]+sire_blanket_ranks)
                                         dam_blanket_maxrank = np.nanmax([0]+dam_blanket_ranks)
@@ -820,7 +828,7 @@ class CorrectGenotypes(object):
                 print("n errors pairs: not rank1 excluded %s passed %s " % (excludedNotBest_all, errors_all))
                 
                 pairedkids = set([x[0] for x in partner_pairs if x is not None]+[x[1] for x in partner_pairs if x is not None])
-                allkids = pedigree.males.union(pedigree.females)
+                allkids = corrected_genotype.index
                 singlekids = [x for x in allkids if x not in pairedkids]
                 with concurrent.futures.ProcessPoolExecutor(max_workers=threads, 
                                             initializer=initializer,
@@ -897,7 +905,7 @@ class CorrectGenotypes(object):
                                                                                maxstates_empirical_rank[actual],
                                                                                multiply_rank[actual]]                
                                                                                 )))+"\n")
-                                    blanket_ranks = [probs_errors.loc[b,SNP_id] for b in blanket if b != resultkid.kid]
+                                    blanket_ranks = [probs_errors.loc[b,SNP_id] for b in blanket if b != resultkid.kid and b in probs_errors.index]
                                     blanket_maxrank = np.nanmax([0]+blanket_ranks)
                                     kid_error_rank = probs_errors.loc[resultkid.kid,SNP_id]
                                     

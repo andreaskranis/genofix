@@ -99,6 +99,7 @@ USAGE
         parser.add_argument("-b", "--lookback", dest="lookback", type=int, default=2,  help="generations to look up/back")
         parser.add_argument("-t", "--tiethreshold", dest="tiethreshold", type=float, default=0.05,  help="error tolerance between probabilies to declare a tie")
         parser.add_argument("-e", "--errorrate", dest="error_rate", type=float, default=1,  help="simulated error rate")
+        parser.add_argument("-et", "--error_thresh", dest="err_thresh", type=float, default=0.1,  help="error tolerance to co-rank top states in blanket")
         parser.add_argument("-g", "--popgenome", dest="prior_pop_genome", type=str, required=False,  help="skip population genomes generation and use specified file")
         parser.add_argument("-z", "--popgenomeerrors", dest="prior_genome_errors", type=str, required=False,  help="skip insertion of errors and use specified file. NB error_rate option will be ignored")
         parser.add_argument("-n", "--firstnsnps", dest="first_n_snps", type=int, required=False, default=None,  help="only use the first n snps of the genome")
@@ -133,7 +134,7 @@ USAGE
         weight_empirical = float(args.weight_empirical)
         filter_e = float(args.filter_e)
         threads = int(args.threads)
-        
+        err_thresh = float(args.err_thresh)
         if args.minimum_cluster_size is not None:
             minimum_cluster_size = int(args.minimum_cluster_size)
             partition_pedigree = True
@@ -182,63 +183,64 @@ USAGE
         
         rs = np.random.Generator(np.random.PCG64(1234)) 
         
-        if founders_haplo_file is not None: # read in haplotypes
-            gens = importers.read_real_haplos(founders_haplo_file, 
-                               genome, first_haplo='maternal', 
-                               mv=9, sep=' ', header=False, random_assign_missing=True)
-            print("imported %s haplotypes" % len(gens.keys()))
-        elif founders_geno_file is not None: 
-            gens = importers.read_real_genos(founders_geno_file, 
-                               genome, mv=9, sep=' ', header=False)
-            print("imported %s genotypes" % len(gens.keys()))
-        else: #generate founders from random haplotypes
-            foundersires = set(pedigree.sire2kid.keys()).difference(pedigree.kid2sire.keys())
-            founderdams = set(pedigree.dam2kid.keys()).difference(pedigree.kid2dam.keys())
-            gens = {int(x):None for x in list(foundersires) + list(founderdams)}
-            
-            for founder in list(foundersires) + list(founderdams):
-                g = gsim.Genotype(chromosomes)
-                for chromosome in chromosomes:
-                    g.data[chromosome][0] = rs.integers(size=genome.chroms[chromosome].nvars, low=0, high=2)
-                    g.data[chromosome][1] = rs.integers(size=genome.chroms[chromosome].nvars, low=0, high=2)
-                gens[founder] = g
-            print("generated %s haplotypes" % len(gens.keys()))
-        
-        genders = {x:1 for x in pedigree.males if x in gens.keys()}
-        genders.update({x:2 for x in pedigree.females if x in gens.keys()})        
-        
-        founders = gsim.create_founders(genders,gens,genome)
-        
-        genotypes = founders.copy()
-        
-        print("genotypes %s" % len(genotypes.keys()))
-        
-        def addMissingKids(trios:list):
-            created=0
-            for kid, sire, dam, sex in trios:
-                if int(kid) not in genotypes.keys() and int(sire) in genotypes.keys() and int(dam) in genotypes.keys():
-                    genotypes[kid] = gsim.mate(genotypes[int(sire)], genotypes[int(dam)], int(kid), genome, int(sex))
-                    created+=1
-            print("created %s" % created)
-            return(created)
-        
-        #mate to fill missing untill there are no more kids to make....
-        while addMissingKids(pedigree.as_ped()) != 0: pass
-        
-        print("%s genotypes generated for %s individuals" % (len(genotypes.keys()), len(pedigree.males)+len(pedigree.females)))
-        
-        if len(genotypes.keys()) != len(pedigree.males)+len(pedigree.females):
-            print("males missing and cannot be generated %s" % [kid for kid in pedigree.males if kid not in genotypes.keys()])
-            print("females missing and cannot be generated %s" % [kid for kid in pedigree.males if kid not in genotypes.keys()])
-        #when the founders aren't the top nodes in the pedigree we need to trim these
-        pedigree = pedigree.get_subset(list(genotypes.keys()), balance_parents=False)
-        
-        chromosomes = sorted([int(chro) for chro in genome.chroms.keys()])
-        print(chromosomes)
-        
-        snpids = list(chain(*[genome.chroms[chro].snpids for chro in chromosomes]))
-        
         if prior_genome is None:
+            if founders_haplo_file is not None: # read in haplotypes
+                gens = importers.read_real_haplos(founders_haplo_file, 
+                                   genome, first_haplo='maternal', 
+                                   mv=9, sep=' ', header=False, random_assign_missing=True)
+                print("imported %s haplotypes" % len(gens.keys()))
+            elif founders_geno_file is not None: 
+                gens = importers.read_real_genos(founders_geno_file, 
+                                   genome, mv=9, sep=' ', header=False)
+                print("imported %s genotypes" % len(gens.keys()))
+            else: #generate founders from random haplotypes
+                founder_no_sire = [x for x in pedigree.males.union(pedigree.females) if x not in pedigree.kid2sire.keys()]
+                founder_no_dam = [x for x in pedigree.males.union(pedigree.females) if x not in pedigree.kid2dam.keys()]
+                
+                gens = {int(x):None for x in list(founder_no_sire) + list(founder_no_dam)}
+                
+                for founder in list(founder_no_sire) + list(founder_no_dam):
+                    g = gsim.Genotype(chromosomes)
+                    for chromosome in chromosomes:
+                        g.data[chromosome][0] = rs.integers(size=genome.chroms[chromosome].nvars, low=0, high=2)
+                        g.data[chromosome][1] = rs.integers(size=genome.chroms[chromosome].nvars, low=0, high=2)
+                    gens[founder] = g
+                print("generated %s haplotypes" % len(gens.keys()))
+            
+            genders = {x:1 for x in pedigree.males if x in gens.keys()}
+            genders.update({x:2 for x in pedigree.females if x in gens.keys()})        
+            
+            founders = gsim.create_founders(genders,gens,genome)
+            
+            genotypes = founders.copy()
+            
+            print("genotypes %s" % len(genotypes.keys()))
+            
+            def addMissingKids(trios:list):
+                created=0
+                for kid, sire, dam, sex in trios:
+                    if int(kid) not in genotypes.keys() and int(sire) in genotypes.keys() and int(dam) in genotypes.keys():
+                        genotypes[kid] = gsim.mate(genotypes[int(sire)], genotypes[int(dam)], int(kid), genome, int(sex))
+                        created+=1
+                print("created %s" % created)
+                return(created)
+            
+            #mate to fill missing untill there are no more kids to make....
+            while addMissingKids(pedigree.as_ped()) != 0: pass
+        
+            print("%s genotypes generated for %s individuals" % (len(genotypes.keys()), len(pedigree.males)+len(pedigree.females)))
+        
+            if len(genotypes.keys()) != len(pedigree.males)+len(pedigree.females):
+                print("males missing and cannot be generated %s" % [kid for kid in pedigree.males if kid not in genotypes.keys()])
+                print("females missing and cannot be generated %s" % [kid for kid in pedigree.males if kid not in genotypes.keys()])
+            #when the founders aren't the top nodes in the pedigree we need to trim these
+            #pedigree = pedigree.get_subset(list(genotypes.keys()), balance_parents=False)
+            
+            chromosomes = sorted([int(chro) for chro in genome.chroms.keys()])
+            print(chromosomes)
+            
+            snpids = list(chain(*[genome.chroms[chro].snpids for chro in chromosomes]))
+            
             with gzip.open("%s/simulated_genotype_crossovers.txt.gz" % out_dir, "wt") as fout:
                 def xtoString(chro, data):
                     switch, points = data
@@ -379,6 +381,8 @@ USAGE
             counter = Counter(genotypes_with_errors.to_numpy().flatten())
             print("pre corrected array: %s" % counter)
             
+            #pedigree = pedigree.get_subset(list(genotypes_with_errors.index), balance_parents=False)
+            
             tic = int(time.time())
             corrected_genotype = pd.DataFrame(data=np.full(genotypes_with_errors.shape, 10, dtype=np.uint8),index=genotypes_with_errors.index, columns=genotypes_with_errors.columns)
             
@@ -388,14 +392,15 @@ USAGE
                 return list(groups)
             chunks = chunk(genotypes_with_errors.columns, chunk_n, (surround_size*2)+1, (surround_size*2)+1)
             for i, snps in enumerate(chunks):
-                print("correcting chunk %s of %s with %s snps in chunk" % ( i, len(chunks), len(snps)))
+                print("correcting chunk %s of %s with %s snps in chunk" % ( i+1, len(chunks), len(snps)))
                 result = c.correctMatrix(genotypes_with_errors.loc[:,snps], 
                                                                 pedigree, 
                                                                 threshold_pairs, threshold_singles,
                                                                 lddist, back=lookback, tiethreshold=tiethreshold, 
                                                                 init_filter_p=init_filter_p, filter_e=filter_e,
                                                                 weight_empirical=weight_empirical,partition_pedigree=partition_pedigree,
-                                                                threads=threads, DEBUGDIR=out_dir, debugreal=genomematrix)
+                                                                threads=threads, err_thresh=err_thresh, 
+                                                                DEBUGDIR=out_dir, debugreal=genomematrix)
                 if i == 0:
                     corrected_genotype.loc[:,snps] = result.loc[:,snps]
                 else :
