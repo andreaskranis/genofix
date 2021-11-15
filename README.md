@@ -13,8 +13,11 @@ Using empirical and Bayesian probabilistic models of Mendelian inheritance to fi
 * [cloudpickle 2.0.0](https://github.com/cloudpipe/cloudpickle) `pip3 install cloudpickle`
 
 or with conda...
+
 `conda create -n genofix python=3.10.0`
+
 `source activate genofix`
+
 `pip3 install pandas matplotlib seaborn pgmpy networkx numpy tqdm cloudpickle`
 
 ## main entry points
