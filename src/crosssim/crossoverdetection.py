@@ -64,9 +64,9 @@ def predictCrossoverRegions(kid, sireobj, damobj) -> Dict[int,Dict[int,Tuple]]:
     detectedCrossoverRegions: Dict[int,Dict[int,Tuple]] = {}
     for chrom in kid.data.keys():
         patcr = predictcrosspoints(
-            kid.data[chrom][0], #paternal strand
-            sireobj.data[chrom][1], #paternal paternal
-            sireobj.data[chrom][0]) #paternal maternal
+            kid.data[chrom][kid.paternal_strand], #paternal strand
+            sireobj.data[chrom][kid.paternal_strand], #paternal paternal
+            sireobj.data[chrom][kid.maternal_strand]) #paternal maternal
         runvalue, runstart, runlength = find_runs(patcr)
         exactTransition = [True if i > 0 and runvalue[i-1] < 3 and x < 3 else False for i,x in enumerate(runvalue)]
         starts = runstart[np.logical_or(runvalue == 3,exactTransition)]
@@ -76,9 +76,9 @@ def predictCrossoverRegions(kid, sireobj, damobj) -> Dict[int,Dict[int,Tuple]]:
         patcregion = (starts, lengths)
         
         matcr = predictcrosspoints(
-            kid.data[chrom][1],#maternal strand        
-            damobj.data[chrom][1], #maternal paternal
-            damobj.data[chrom][0]) #maternal maternal
+            kid.data[chrom][kid.maternal_strand],#maternal strand        
+            damobj.data[chrom][kid.paternal_strand], #maternal paternal
+            damobj.data[chrom][kid.maternal_strand]) #maternal maternal
         runvalue, runstart, runlength = find_runs(matcr)
         exactTransition = [True if i > 0 and runvalue[i-1] < 3 and x < 3 else False for i,x in enumerate(runvalue)]
         starts = runstart[np.logical_or(runvalue == 3,exactTransition)]

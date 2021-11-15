@@ -93,13 +93,13 @@ USAGE
         parser.add_argument("-c", "--chunk", dest="chunk", required=False,default=1000,type=int, help="chunk size to process snps in..decrease if you have memory issues")
         parser.add_argument("-l", "--thresholdsingles", dest="threshold_singles", type=float, default=0.7, help="threshold prob for singles")
         parser.add_argument("-m", "--thresholdpairs", dest="threshold_pairs", type=float, default=0.5, help="threshold prob for mating pairs")
-        parser.add_argument("-w", "--surroundsnps", dest="surround_size", type=int, default=2, help="number of snps either side of a snp to create window for empirical")
+        parser.add_argument("-w", "--surroundsnps", dest="surround_size", type=int, default=4, help="number of snps either side of a snp to create window for empirical")
         parser.add_argument("-o", "--outdir", dest="outdir", required=True , help="outputdir")
         parser.add_argument("-d", "--lddisttype", dest="lddisttype",  default='global', type=str, choices=['none', 'global', 'local'], help="ld distance calculation type to use")
         parser.add_argument("-b", "--lookback", dest="lookback", type=int, default=2,  help="generations to look up/back")
         parser.add_argument("-t", "--tiethreshold", dest="tiethreshold", type=float, default=0.05,  help="error tolerance between probabilies to declare a tie")
         parser.add_argument("-e", "--errorrate", dest="error_rate", type=float, default=1,  help="simulated error rate")
-        parser.add_argument("-et", "--error_thresh", dest="err_thresh", type=float, default=0.1,  help="error tolerance to co-rank top states in blanket")
+        parser.add_argument("-et", "--error_thresh", dest="err_thresh", type=float, default=1,  help="error tolerance to co-rank top states in blanket")
         parser.add_argument("-g", "--popgenome", dest="prior_pop_genome", type=str, required=False,  help="skip population genomes generation and use specified file")
         parser.add_argument("-z", "--popgenomeerrors", dest="prior_genome_errors", type=str, required=False,  help="skip insertion of errors and use specified file. NB error_rate option will be ignored")
         parser.add_argument("-n", "--firstnsnps", dest="first_n_snps", type=int, required=False, default=None,  help="only use the first n snps of the genome")
@@ -253,7 +253,7 @@ USAGE
                             fout.write("\t"+xtoString(chro,genotypes[kid].mcr[chro]))
                     else:
                         fout.write("\t")
-                    fout.write(str(kid))
+                    fout.write("\t"+str(kid))
                     if len(genotypes[kid].pcr) > 0:
                         for chro in chromosomes:
                             fout.write("\t"+xtoString(chro,genotypes[kid].pcr[chro]))
@@ -347,6 +347,7 @@ USAGE
                        "weight_empirical",
                        "prefilter_empirical",
                        "ld_distance_mode",
+                       "err_thresh",
                              "total_observations",
                              "positives",
                               "positive_nine", 
@@ -369,10 +370,10 @@ USAGE
             statout.flush()
             
             c = CorrectGenotypes(chromosome2snp=chromosome2snp, surround_size=surround_size, min_cluster_size=minimum_cluster_size, elimination_order=elimination_order)
-            
-            statout.write('%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s' % 
-                      (threshold_pairs, threshold_singles, tiethreshold, init_filter_p, weight_empirical,filter_e,lddist,
+            values = map(str,(threshold_pairs, threshold_singles, tiethreshold, init_filter_p, 
+                       weight_empirical,filter_e,lddist,err_thresh,
                        np.product(genomematrix.shape) ))
+            statout.write('\t'.join(values))
             statout.flush()
 
             

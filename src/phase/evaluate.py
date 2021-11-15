@@ -18,7 +18,7 @@ It defines classes_and_methods
 '''
 
 import sys
-import os
+import os, re
 import pathlib
 import pandas as pd
 import quickgsim as gsim
@@ -92,11 +92,12 @@ USAGE
         parser.add_argument("-o", "--output", dest="output", required=True, help="output directory")
         parser.add_argument("-p", "--pedigree", dest="pedigree_file", required=True, help="pedigree input file for triplets in crossover detection")
         parser.add_argument("-x", "--xover", dest="xover", required=True, help="xover input file with reference xover sites")
+        parser.add_argument("-s", "--snps", dest="snps", required=False, type=int, default=sys.maxsize, help="")
         parser.add_argument('-V', '--version', action='version', version=program_version_message)
         
         # Process arguments
         args = parser.parse_args()
-
+        snps_n = args.snps
         reference_file = args.reference
         print("reference %s" % reference_file)
         subject_files = args.inputs
@@ -112,12 +113,23 @@ USAGE
         
         genomein = pd.read_csv(snpmap, sep=' ', names = ["chrom", "snpid", "cm", "pos"])
         
-        real_xovers = {}
+        real_mat_xovers = {}
+        real_pat_xovers = {}
         with gzip.open(xover, "rt") as xoverref:
             for line in xoverref.readlines():
                 values = line.strip().split("\t")
-                xovers = [x.split(":") for x in values[1:] if x != ""]
-                real_xovers[int(values[0])] = {int(chro):list(map(int,pos.split(","))) for chro,_direct,pos in xovers}
+                id_kid = values[0]
+                mat_p, pat_p = [_.start() for _ in re.finditer(id_kid, line)]
+                mat_xovers = line.strip()[mat_p+len(id_kid)+1:pat_p]
+                pat_xovers = line.strip()[pat_p+len(id_kid):]
+                #print("mat %s %s~%s~ " % (len(id_kid), mat_p, mat_xovers))
+                #print("pat %s %s~%s~ " % (len(id_kid), pat_p, pat_xovers))
+                if len(mat_xovers) > 0:
+                    xovers = [x.split(":") for x in mat_xovers.split("\t") if x != ""]
+                    real_mat_xovers[int(values[0])] = {int(chro):[int(x) for x in pos.split(",") if int(x) <= snps_n] for chro,_direct,pos in xovers}
+                if len(pat_xovers) > 0:
+                    xovers = [x.split(":") for x in pat_xovers.split("\t") if x != ""]
+                    real_pat_xovers[int(values[0])] = {int(chro):[int(x) for x in pos.split(",") if int(x) <= snps_n] for chro,_direct,pos in xovers}
         
         chromosome2snp = defaultdict(set)
         chromosomes = set([row["chrom"] for index, row in genomein.iterrows()])
@@ -154,16 +166,18 @@ USAGE
         else:
             print("Reading haplotype reference: %s" % reference_file)
             gens_reference = importers.read_real_haplos(reference_file, 
-                               genome, first_haplo='maternal',
+                               genome, first_haplo='paternal',
                                mv=9, sep=' ', header=False, random_assign_missing=False)
             dumpToPickle(reference_pickle_file,gens_reference)
+        
+        #print("gens_reference: %s" % gens_reference.keys())
         
         ref_genotype_count = Counter()
         ref_genotype_count_chr = {int(chro):Counter() for chro in chromosomes}
         for kid, genotype in gens_reference.items():
             for chro, genotypes in genotype.data.items():
-                maternal = Counter(genotypes[0])
-                paternal = Counter(genotypes[1])
+                maternal = Counter(genotypes[genotype.maternal_strand])
+                paternal = Counter(genotypes[genotype.paternal_strand])
                 ref_genotype_count = ref_genotype_count+maternal
                 ref_genotype_count = ref_genotype_count+paternal
                 ref_genotype_count_chr[chro] = ref_genotype_count_chr[chro]+maternal
@@ -218,8 +232,8 @@ USAGE
             
             for kid, genotype in gens_subject.items():
                 for chro, genotypes in genotype.data.items():
-                    maternal_s = np.array(genotypes[0])
-                    paternal_s = np.array(genotypes[1])
+                    maternal_s = np.array(genotypes[genotype.maternal_strand])
+                    paternal_s = np.array(genotypes[genotype.paternal_strand])
                     maternal_r = np.array(gens_reference[kid][chro][0])
                     paternal_r = np.array(gens_reference[kid][chro][1])
                     
@@ -283,8 +297,8 @@ USAGE
                                       'o', color='blue');
                 plt.ylabel('pc error haplotype\n%s' % subject_file2)
                 plt.xlabel('pc error haplotype\n%s' %  subject_file1)
-                plt.title('Haplotype errors from alphaimpute2 \n %s vs %s' % (subject_file1, subject_file2))
-                plt.savefig('%s/scatter_pcerrors_haplotype_calling_%s_vs_%s.png' % (output_dir,subject_file1,subject_file2))
+                plt.title('Haplotype errors from alphaimpute2 \n %s vs %s' % (Path(subject_file1), Path(subject_file2)))
+                plt.savefig('%s/scatter_pcerrors_haplotype_calling_%s_vs_%s.png' % (output_dir,Path(subject_file1), Path(subject_file2)))
                 plt.close()
                 
                 plt.figure()
@@ -294,42 +308,66 @@ USAGE
                                       'o', color='blue');
                 plt.ylabel('difference in errors haplotype\n%s-%s' % (subject_file1,subject_file2))
                 plt.xlabel('Chromosome' )
-                plt.title('Haplotype errors from alphaimpute2 \n %s vs %s' % (subject_file1, subject_file2))
+                plt.title('Haplotype errors from alphaimpute2 \n %s vs %s' % (Path(subject_file1), Path(subject_file2)))
                 plt.axhline(y=0, color='k')
-                plt.savefig('%s/scatter_errors_haplotype_calling_%s_vs_%s.png' % (output_dir,subject_file1,subject_file2))
+                plt.savefig('%s/scatter_errors_haplotype_calling_%s_vs_%s.png' % (output_dir,Path(subject_file1), Path(subject_file2)))
                 plt.close()
         
         print("stats for crossovers ")
         pc_predicted_real = []
         pc_real_predicted = []
         lengths_list = []
-        for kid in pedigree.males.union(pedigree.females):
+        for kid in gens_reference.keys():
             sire, dam = pedigree.get_parents(kid)
             if sire is not None and dam is not None:
-                if str(sire) in gens_reference.keys() and str(dam) in gens_reference.keys() and str(kid) in gens_reference.keys():
-                    crossovers = crossoverdetection.predictCrossoverRegions(gens_reference[str(kid)], gens_reference[str(sire)], gens_reference[str(dam)])
+                if sire in gens_reference.keys() and dam in gens_reference.keys() and kid in gens_reference.keys():
+                    crossovers = crossoverdetection.predictCrossoverRegions(gens_reference[kid], gens_reference[sire], gens_reference[dam])
                     #print("crossovers: %s" % crossovers)
                     for chro, predictedxover in crossovers.items():
-                        detected = [range(p,p+(leng+1)) for p,leng in zip(predictedxover[1][0], predictedxover[1][1])]
-                        true_ones = [np.any([real in d for real in real_xovers[kid][chro]]) for d in detected]
-                        pc_predicted_real.append(
-                            np.sum(true_ones)/ len(detected))
-                        pc_real_predicted.append(
-                            np.sum([np.any([real in d for d in detected]) for real in real_xovers[kid][chro]])/len(real_xovers[kid][chro]))
-                        lengths_list.extend(predictedxover[1][1][true_ones])
+                        detected_mat = [range(p,p+(leng+1)) for p,leng in zip(predictedxover[0][0], predictedxover[0][1])]
+                        detected_pat = [range(p,p+(leng+1)) for p,leng in zip(predictedxover[1][0], predictedxover[1][1])]
+                        real_mat_xover_chr = real_mat_xovers[kid][chro] if chro in real_mat_xovers[kid] else []
+                        real_pat_xover_chr = real_pat_xovers[kid][chro] if chro in real_pat_xovers[kid] else []
+                        true_ones_mat = [np.any([real in d for real in real_mat_xover_chr]) for d in detected_mat]
+                        true_ones_pat = [np.any([real in d for real in real_pat_xover_chr]) for d in detected_pat]
+                        
+                        if len(detected_mat) > 0:
+                            pc_predicted_real.append(np.sum(true_ones_mat)/ len(detected_mat))
+                        if len(detected_pat) > 0:
+                            pc_predicted_real.append(np.sum(true_ones_pat)/ len(detected_pat))
+                        
+                        def hasHit(values, truehits):
+                            for hit in truehits:
+                                if hit in values:
+                                    return(True)
+                            return(False)
+                        
+                        if len(real_mat_xover_chr) > 0:
+                            #print("detected_mat %s" % detected_mat)
+                            #print("real_mat_xover_chr %s" % real_mat_xover_chr)
+                            #print("hasHit %s" % [hasHit(real,real_mat_xover_chr) for real in detected_mat])
+                            pc_real_predicted.append(
+                                np.sum([hasHit(real,real_mat_xover_chr) for real in detected_mat])/len(real_mat_xover_chr))
+                        if len(real_pat_xover_chr) > 0:
+                            pc_real_predicted.append(
+                                np.sum([hasHit(real,real_pat_xover_chr) for real in detected_pat])/len(real_pat_xover_chr))
+                        
+                        lengths_list.extend(predictedxover[0][1][true_ones_mat])
+                        lengths_list.extend(predictedxover[1][1][true_ones_pat])
+                        
                         #print("chr %s" % chro)
                         #paternalxover = [str(p)+"("+str(leng)+")" for p,leng in zip(predictedxover[1][0], predictedxover[1][1])]
                         #print("paternalxover: %s" % ",".join(map(str,paternalxover)))
                         #print("real_xovers: %s" % ",".join(map(str,real_xovers[kid][chro])))
-        
         plt.figure()
-        n, bins, patches = plt.hist(pc_predicted_real, bins=100, density=False, facecolor='g', alpha=0.75)
+        n, bins, patches = plt.hist(pc_predicted_real, bins=99, density=False, facecolor='g', alpha=0.75)
         plt.xlabel('pc predicted real')
         plt.ylabel('Count')
         plt.title('Histogram of percent xover predictions that are real')
         plt.grid(True)
         plt.xlim(0, 1)
-        plt.savefig('%s/histogram_percent_xover_predictions_real_%s.png' % (output_dir,Path(reference_file).name))
+        plt.yscale('log')
+        plt.savefig('%s/REF_histogram_percent_xover_predictions_real_%s.png' % (output_dir,Path(reference_file).name))
         plt.close()
         
         plt.figure()
@@ -339,7 +377,7 @@ USAGE
         plt.title('Histogram of percent real xover that are predicted')
         plt.grid(True)
         plt.xlim(0, 1)
-        plt.savefig('%s/histogram_percent_xover_real_predicted_%s.png' % (output_dir,Path(reference_file).name))
+        plt.savefig('%s/REF_histogram_percent_xover_real_predicted_%s.png' % (output_dir,Path(reference_file).name))
         plt.close()
         
         plt.figure()
@@ -349,7 +387,7 @@ USAGE
         plt.title('Histogram of lengths of true predicted regions')
         plt.grid(True)
         plt.yscale('log')
-        plt.savefig('%s/histogram_percent_xover_predictions_lengths_%s.png' % (output_dir,Path(reference_file).name))
+        plt.savefig('%s/REF_histogram_percent_xover_predictions_lengths_%s.png' % (output_dir,Path(reference_file).name))
         plt.close()
         
         for subject_file, gens_subject in subject_file_obj.items():
@@ -357,20 +395,48 @@ USAGE
             pc_predicted_real = []
             pc_real_predicted = []
             lengths_list = []
-            for kid in pedigree.males.union(pedigree.females):
+            for kid in gens_reference.keys():
                 sire, dam = pedigree.get_parents(kid)
                 if sire is not None and dam is not None:
-                    if str(sire) in gens_subject.keys() and str(dam) in gens_subject.keys() and str(kid) in gens_subject.keys():
-                        crossovers = crossoverdetection.predictCrossoverRegions(gens_subject[str(kid)], gens_subject[str(sire)], gens_subject[str(dam)])
+                    if sire in gens_subject.keys() and dam in gens_subject.keys() and kid in gens_subject.keys():
+                        crossovers = crossoverdetection.predictCrossoverRegions(gens_subject[kid], gens_subject[sire], gens_subject[dam])
                         #print("crossovers: %s" % crossovers)
                         for chro, predictedxover in crossovers.items():
-                            detected = [range(p,p+(leng+1)) for p,leng in zip(predictedxover[1][0], predictedxover[1][1])]
-                            true_ones = [np.any([real in d for real in real_xovers[kid][chro]]) for d in detected]
-                            pc_predicted_real.append(
-                                np.sum(true_ones)/ len(detected))
+                            detected_mat = [range(p,p+(leng+1)) for p,leng in zip(predictedxover[0][0], predictedxover[0][1])]
+                            detected_pat = [range(p,p+(leng+1)) for p,leng in zip(predictedxover[1][0], predictedxover[1][1])]
+                            real_mat_xover_chr = real_mat_xovers[kid][chro] if chro in real_mat_xovers[kid] else []
+                            real_pat_xover_chr = real_pat_xovers[kid][chro] if chro in real_pat_xovers[kid] else []
+                            true_ones_mat = [np.any([real in d for real in real_mat_xover_chr]) for d in detected_mat]
+                            true_ones_pat = [np.any([real in d for real in real_pat_xover_chr]) for d in detected_pat]
+                            #if len(real_mat_xover_chr) > 0:
+                            #    print("real_mat %s " % real_mat_xover_chr)
+                            #    print("real_pat %s " % real_pat_xover_chr)
+                            #    print("detected_mat %s " % detected_mat)
+                            #    print("detected_pat %s " % detected_pat)
+                            #sys.exit()
+                            if len(detected_mat) > 0:
+                                pc_predicted_real.append(
+                                np.sum(true_ones_mat)/ len(detected_mat))
+                                
+                            if len(detected_pat) > 0:
+                                pc_predicted_real.append(
+                                    np.sum(true_ones_pat)/ len(detected_pat))
+                            
+                        def hasHit(values, truehits):
+                            for hit in truehits:
+                                if hit in values:
+                                    return(True)
+                            return(False)
+                        
+                        if len(real_mat_xover_chr) > 0:
                             pc_real_predicted.append(
-                                np.sum([np.any([real in d for d in detected]) for real in real_xovers[kid][chro]])/len(real_xovers[kid][chro]))
-                            lengths_list.extend(predictedxover[1][1][true_ones])
+                                np.sum([hasHit(real,real_mat_xover_chr) for real in detected_mat])/len(real_mat_xover_chr))
+                        if len(real_pat_xover_chr) > 0:
+                            pc_real_predicted.append(
+                                np.sum([hasHit(real,real_pat_xover_chr) for real in detected_pat])/len(real_pat_xover_chr))
+                        
+                            lengths_list.extend(predictedxover[0][1][true_ones_mat])
+                            lengths_list.extend(predictedxover[1][1][true_ones_pat])
             
             plt.figure()
             n, bins, patches = plt.hist(pc_predicted_real, bins=100, density=False, facecolor='g', alpha=0.75)
@@ -379,6 +445,7 @@ USAGE
             plt.title('Histogram of percent xover predictions that are real')
             plt.grid(True)
             plt.xlim(0, 1)
+            plt.yscale('log')
             plt.savefig('%s/histogram_percent_xover_predictions_real_%s.png' % (output_dir,subject_file))
             plt.close()
             

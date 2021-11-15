@@ -88,7 +88,7 @@ class JointAllellicDistribution(object):
                     rows_that_meet = np.logical_and.reduce([np.equal(subset[:,column_names == snp],value) for snp,value in conditions[i:-i]])
                     obs = np.count_nonzero(rows_that_meet)
                     obs = obs - results[state_key] # remove outer overlap
-                    results[state_key] = obs+results[state_key]
+                    results[state_key] = (obs/(i+1))+results[state_key]
             #if 9 not in values: # only count complete real value arrays
             #    self.n_observations[snp_key] += (obs+self.pseudocount) # this we keep track of how many observations there have been for these three snps
         return(results)

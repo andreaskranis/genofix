@@ -46,13 +46,60 @@ def find_runs(x:ArrayLike, ignorevalue=9) -> Tuple:
         loc_run_start = np.empty(n, dtype=bool) # find run starts
         loc_run_start[0] = True
         np.not_equal(x[:-1], x[1:], out=loc_run_start[1:])
-        if ignorevalue is not None:
-            ofvalue = x == ignorevalue
-            loc_run_start[np.logical_or(ofvalue,np.insert(np.delete(ofvalue, -1), 0, False))] = False
+        #print(loc_run_start)
+        #if ignorevalue is not None:
+            #ofvalue = x == ignorevalue
+            #loc_run_start[np.logical_or(ofvalue,np.insert(np.delete(ofvalue, -1), 0, False))] = False
+        #print(loc_run_start)
         run_starts = np.nonzero(loc_run_start)[0]
         run_values = x[loc_run_start] # find run values
         run_lengths = np.diff(np.append(run_starts, n)) # find run lengths
+        
+        def eliminateMissing(run_values, run_starts, run_lengths):
+            for i, value in enumerate(run_values):
+                if value == 9:
+                    if i == 0:
+                        #a start
+                        run_starts[i+1] = run_starts[i]
+                        run_lengths[i+1] = run_lengths[i]+run_lengths[i+1]
+                        run_lengths = np.delete(run_lengths, i)
+                        run_values = np.delete(run_values, i)
+                        run_starts = np.delete(run_starts, i)
+                    elif i == len(run_values)-1:
+                        #end
+                        run_lengths[i-1] = run_lengths[i]+run_lengths[i-1]
+                        run_lengths = np.delete(run_lengths, i)
+                        run_values = np.delete(run_values, i)
+                        run_starts = np.delete(run_starts, i)
+                    elif run_values[i-1] == run_values[i+1]:
+                        #merge
+                        run_lengths[i-1] = run_lengths[i-1]+run_lengths[i]+run_lengths[i+1]
+                        run_lengths = np.delete(run_lengths, [i,i+1])
+                        run_values = np.delete(run_values, [i,i+1])
+                        run_starts = np.delete(run_starts, [i,i+1])
+                    elif run_values[i-1] != run_values[i+1]:
+                        # overlap
+                        tmplenmissing=run_lengths[i]
+                        run_lengths[i-1] = tmplenmissing+run_lengths[i-1]
+                        run_lengths[i+1] = tmplenmissing+run_lengths[i+1]
+                        run_starts[i+1] = run_starts[i+1]-tmplenmissing
+                        run_lengths = np.delete(run_lengths, i)
+                        run_values = np.delete(run_values, i)
+                        run_starts = np.delete(run_starts, i)
+                    return(run_values, run_starts, run_lengths, True)
+            return(run_values, run_starts, run_lengths, False)
+        
+        while True:
+            run_values, run_starts, run_lengths, changed = eliminateMissing(run_values, run_starts, run_lengths)
+            if not changed:
+                break
         return run_values, run_starts, run_lengths
+
+#print(find_runs([9,9,9,0,0,0,0,1,1,1,1,1], ignorevalue=9))
+#print(find_runs([0,0,0,0,9,9,9,9,1,1,1,1,1], ignorevalue=9))
+#print(find_runs([0,0,0,0,9,9,9,9,0,1,1,1,1,1], ignorevalue=9))
+#print(find_runs([0,0,0,0,9,9,9,9,0,1,1,1,1,1,9,9,9], ignorevalue=9))
+
 
 def predictcrosspoints(p:ArrayLike, pp:ArrayLike, pm:ArrayLike, ignorevalue=9) -> ArrayLike:
     '''

@@ -34,6 +34,34 @@ _default_mendelprobs_np = np.array(_default_mendelprobs)
 tinyamount = 0.0001
 _default_mendelprobs_c = np.add(_default_mendelprobs,tinyamount)/(tinyamount+1) #bound away from zero
 
+#===============================================================================
+# def generate_probs_kids(kidstates, oneparentstates):
+#     '''
+#      sire 0  0   0   1   1   1  2  2  2
+#      dam 0  1   2   0   1   2  0  1  2
+#     '''
+#     structA = [0,0,0,1,1,1,2,2,2]
+#     structB = [0,1,2,0,1,2,0,1,2]
+#     
+#     kidstates = np.asarray(kidstates)
+#     oneparentstates = np.asarray(oneparentstates)
+#     include = [x in [0,1,2] for x in kidstates]
+#     
+#     if np.count_nonzero(include) > 0:
+#         prob_table = np.array([_default_mendelprobs[x] for x in kidstates[include]])
+#         for i,parent in enumerate(oneparentstates[include]):
+#             if parent is not None and parent in [0,1,2]:
+#                 prob_table[i,np.not_equal(structA,parent)] = 0
+#             rowsum = np.sum(prob_table[i,])
+#             if rowsum > 0:
+#                 prob_table[i,] = np.divide(prob_table[i,],rowsum)
+#         prob_result = [np.nansum(prob_table[:, np.equal(structB,x)]) for x in [0,1,2]]
+#         if sum(prob_result) > 0:
+#             prob_result = prob_result/sum(prob_result)
+#         return(prob_result)
+#     return[1/3,1/3,1/3]
+#===============================================================================
+
 def generate_probs_kids(kidstates, oneparentstates):
     '''
      sire 0  0   0   1   1   1  2  2  2
@@ -54,11 +82,13 @@ def generate_probs_kids(kidstates, oneparentstates):
             rowsum = np.sum(prob_table[i,])
             if rowsum > 0:
                 prob_table[i,] = np.divide(prob_table[i,],rowsum)
-        prob_result = [np.nansum(prob_table[:, np.equal(structB,x)]) for x in [0,1,2]]
+        prob_result = [np.nanmean(prob_table[:, np.equal(structB,x)]) for x in [0,1,2]]
         if sum(prob_result) > 0:
             prob_result = prob_result/sum(prob_result)
         return(prob_result)
     return[1/3,1/3,1/3]
+
+print(generate_probs_kids([1,0,1,0,1],[2,2,2,2,2]))
 
 def generate_probs_differences_kids(kidstates, oneparentstates, observedstate):
     '''
@@ -109,7 +139,6 @@ def generate_probs_differences_parent(parent1, parent2, observedstate):
 # print(generate_probs_differences_parent(9,2,0))
 # print(generate_probs_differences_parent(9,9,1))
 # 
-print(generate_probs_differences_kids([1,0,1,0,1],[2,2,2,2,2],2))
 # print(generate_probs_kids([1,0,1,0,1],[2,2,2,2,2]))
 #===============================================================================
 

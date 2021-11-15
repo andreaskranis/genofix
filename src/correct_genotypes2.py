@@ -114,7 +114,7 @@ class CorrectGenotypes(object):
                 state_parents = [None]*len(genotyped_kids[include])
                 for i, child in enumerate(genotyped_kids[include]):
                     otherparent = [x for x in pedigree.get_parents(child) if x is not None]
-                    if len(otherparent) == 0:
+                    if len(otherparent) == 0 and otherparent[0] in genotypes.index:
                         state_parents[i] = genotypes.loc[otherparent[0],SNP_id]
                 probs = bayesnet.model.generate_probs_kids(state_kids[include], state_parents)
                 if observed in [0,1,2] :
@@ -132,7 +132,8 @@ class CorrectGenotypes(object):
                     result_errors[j] = np.sum(prob_error)
             
             if anc_probs is not None and probs is not None:
-                result[j] = np.nanmean([anc_probs,probs],0, dtype=float)
+                #result[j] = np.nanmean([anc_probs,probs],0, dtype=float)
+                result[j] = np.multiply(anc_probs,probs)
             elif anc_probs is not None and probs is None:
                 result[j] = anc_probs
             elif anc_probs is None and probs is not None:
@@ -235,7 +236,7 @@ class CorrectGenotypes(object):
                     state_parents = [None]*len(genotyped_sire_kids)
                     for i, child in enumerate(genotyped_sire_kids):
                         otherparent = [x for x in pedigree.get_parents(child) if x is not None and x != sire]
-                        if len(otherparent) == 1:
+                        if len(otherparent) == 1 and otherparent[0] in genotypes.index:
                             state_parents[i] = genotypes.loc[otherparent[0],SNP_id]
                     probs_sire = bayesnet.model.generate_probs_kids(state_kids, state_parents)
                 else :
@@ -247,15 +248,15 @@ class CorrectGenotypes(object):
                     state_parents = [None]*len(genotyped_dam_kids)
                     for i, child in enumerate(genotyped_dam_kids):
                         otherparent = [x for x in pedigree.get_parents(child) if x is not None and x != dam]
-                        if len(otherparent) == 1:
+                        if len(otherparent) == 1 and otherparent[0] in genotypes.index:
                             state_parents[i] = genotypes.loc[otherparent[0],SNP_id]
                     probs_dam = bayesnet.model.generate_probs_kids(state_kids, state_parents)
                 else :
                     probs_dam = None
                 
                 if anc_probs_sire is not None and probs_sire is not None: 
-                    stateProbs_sire = np.nanmean([anc_probs_sire,probs_sire],0, dtype=float)
-                    #stateProbs_sire = np.multiply(anc_probs_sire,probs_sire)
+                    #stateProbs_sire = np.nanmean([anc_probs_sire,probs_sire],0, dtype=float)
+                    stateProbs_sire = np.multiply(anc_probs_sire,probs_sire)
                 elif anc_probs_sire is not None and probs_sire is None: 
                     stateProbs_sire = anc_probs_sire
                 elif anc_probs_sire is None and probs_sire is not None: 
@@ -267,8 +268,8 @@ class CorrectGenotypes(object):
                     stateProbs_sire = np.divide(stateProbs_sire, np.sum(stateProbs_sire))
                     
                 if anc_probs_dam is not None and probs_dam is not None: 
-                    stateProbs_dam = np.nanmean([anc_probs_dam,probs_dam], 0,dtype=float)
-                    #stateProbs_dam = np.multiply(anc_probs_dam,probs_dam)
+                    #stateProbs_dam = np.nanmean([anc_probs_dam,probs_dam], 0,dtype=float)
+                    stateProbs_dam = np.multiply(anc_probs_dam,probs_dam)
                 elif anc_probs_dam is not None and probs_dam is None: 
                     stateProbs_dam = anc_probs_dam
                 elif anc_probs_dam is None and probs_dam is not None: 
@@ -286,7 +287,6 @@ class CorrectGenotypes(object):
                 #for sire_state,dam_state in accumulateCombinations([0,1,2],2):
                 #    stateProbs_joint[sire_state,dam_state] = stateProbs_sire[sire_state]*stateProbs_dam[dam_state]
                 stateProbs_joint = np.outer(stateProbs_sire,stateProbs_dam)
-                                        
                 
                 max_prob = np.nanmax(stateProbs_joint)
                 max_states = [list(x) for x in np.asarray(stateProbs_joint >= (max_prob-tiethreshold)).nonzero()]
@@ -385,8 +385,8 @@ class CorrectGenotypes(object):
                     probs = None
                 
                 if anc_probs is not None and probs is not None: 
-                    stateProbs = np.nanmean([anc_probs, probs], 0, dtype=float)
-                    # stateProbs_sire = np.multiply(anc_probs_sire,probs_sire)
+                    #stateProbs = np.nanmean([anc_probs, probs], 0, dtype=float)
+                    stateProbs = np.multiply(anc_probs,probs)
                 elif anc_probs is not None and probs is None: 
                     stateProbs = anc_probs
                 elif anc_probs is None and probs is not None: 
@@ -514,7 +514,7 @@ class CorrectGenotypes(object):
                       filter_e=0.7,
                       tiethreshold=0.05,
                       threads=1, 
-                      err_thresh=0.1,
+                      err_thresh=1,
                       weight_empirical=3,
                       outputerrors=False,
                       partition_pedigree=False,
@@ -598,19 +598,20 @@ class CorrectGenotypes(object):
                     if partition_pedigree:
                         clusters = {i:set(cluster) for i, cluster in enumerate(pedigree.split_pedigree(min_cluster_size=self.min_cluster_size))}
                     else:
-                        clusters = {1:corrected_genotype.index}
+                        clusters = {0:corrected_genotype.index}
                     clusters_index = dict(np.concatenate([[(c,i) for c in cl] for i, cl in clusters.items()]))
                     
                     for i, cluster in clusters.items() :
+                        c = [c for c in cluster if c in corrected_genotype.index]
                         print("calculating LDDist for cluster %s of %s" % (i+1, len(clusters)))
                         empC = JointAllellicDistribution(list(corrected_genotype.columns),
                                                         surround_size=self.surround_size,
                                                         chromosome2snp=self.chromosome2snp)
                         print("create mask")
-                        mask = np.array(probs_errors.loc[cluster,:].to_numpy() <= filter_e, dtype=bool)
+                        mask = np.array(probs_errors.loc[c,:].to_numpy() <= quantE_t, dtype=bool)
                         print("calc empirical ld on genotype with %s of %s (%6.2f pc) over under cuttoff %6.6f mendel errors after removing > %s quantile of mendel errors" % (np.count_nonzero(mask), mask.size, (np.count_nonzero(mask)/mask.size)*100,quantE_t, filter_e))
                         #print("calc empirical ld on genotype with %s of %s (%6.2f pc) over under cuttoff 0 mendel errors" % (np.count_nonzero(mask), mask.size, (np.count_nonzero(mask)/mask.size)*100,))
-                        empC.countJointFrqAll(corrected_genotype.loc[cluster,:], mask)
+                        empC.countJointFrqAll(corrected_genotype.loc[c,:], mask)
                         cluster_emp[i] = empC
                     print("done")
                 
@@ -728,11 +729,13 @@ class CorrectGenotypes(object):
                                             snpwindow = emp_sire.getWindow(SNP_id)
                                             observedstatesevidence_sire = {snpid:corrected_genotype.loc[resultPair.sire,snpid] for snpid in snpwindow}
                                             state_obs_sire = list(emp_sire.getCountTable(observedstatesevidence_sire, SNP_id))
-                                            sire_prob_states_normalised = np.divide(state_obs_sire,np.nansum(state_obs_sire))
+                                            if np.nansum(state_obs_sire) > 0:
+                                                sire_prob_states_normalised = np.divide(state_obs_sire,np.nansum(state_obs_sire))
                                             
                                             observedstatesevidence_dam = {snpid:corrected_genotype.loc[resultPair.dam,snpid] for snpid in snpwindow}
                                             state_obs_dam = list(emp_dam.getCountTable(observedstatesevidence_dam, SNP_id))
-                                            dam_prob_states_normalised = np.divide(state_obs_dam,np.nansum(state_obs_dam))
+                                            if np.nansum(state_obs_dam) > 0:
+                                                dam_prob_states_normalised = np.divide(state_obs_dam,np.nansum(state_obs_dam))
                                             
                                             multiply_rank_sire = rankdata(1-(np.multiply(sire_probs_all_states,sire_prob_states_normalised*weight_empirical)), method='max')
                                             multiply_rank_dam = rankdata(1-(np.multiply(dam_probs_all_states,dam_prob_states_normalised*weight_empirical)), method='max')
@@ -793,7 +796,7 @@ class CorrectGenotypes(object):
                                             #print("max empirical %s" % np.nanmax(stateProbs_empirical_joint))
                                             #print("max mendelian %s" % maxstates)
                                             #print("max states empirical %s" % "".join(map(str,[list(x) for x in np.asarray(stateProbs_empirical_joint == np.nanmax(stateProbs_empirical_joint)).nonzero()])))
-                                            if sire_error_rank+err_thresh  >= sire_blanket_maxrank: #highest difference in blanket?
+                                            if sire_error_rank*err_thresh  >= sire_blanket_maxrank: #highest difference in blanket?
                                                 if (len(set(maxstates_sire)) == 1):
                                                     corrected_genotype.loc[int(resultPair.sire),SNP_id] = int(list(set(maxstates_sire))[0])
                                                 else:
@@ -809,7 +812,7 @@ class CorrectGenotypes(object):
                                         
                                         if observed_dam not in [0,1,2] or (observed_dam not in maxstates_dam and ((maxprobs_dam-dam_probs) >= threshold_pair)):
                                             #print("%s %s %s %s" % (observed_dam[SNP_id], maxstates[1], np.nanmax(dam_probs), threshold_pair))
-                                            if dam_error_rank+err_thresh >= dam_blanket_maxrank: #highest difference in blanket?
+                                            if dam_error_rank*err_thresh >= dam_blanket_maxrank: #highest difference in blanket?
                                                 if (len(set(maxstates_dam)) == 1):
                                                     corrected_genotype.loc[int(resultPair.dam),SNP_id]  = int(list(set(maxstates_dam))[0])
                                                 else:
@@ -910,7 +913,7 @@ class CorrectGenotypes(object):
                                     kid_error_rank = probs_errors.loc[resultkid.kid,SNP_id]
                                     
                                     if observed_state not in [0,1,2] or (observed_state not in maxstates and ((maxprobs-observed_prob) >= threshold_single)):
-                                        if kid_error_rank+err_thresh  >= blanket_maxrank:
+                                        if kid_error_rank*err_thresh  >= blanket_maxrank:
                                             if (len(set(maxstates)) == 1):
                                                 corrected_genotype.loc[int(resultkid.kid),SNP_id] = int(list(set(maxstates))[0])
                                             else:
