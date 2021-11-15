@@ -12,6 +12,11 @@ Using empirical and Bayesian probabilistic models of Mendelian inheritance to fi
 * [tqdm 4.62.3](https://github.com/tqdm/tqdm) `pip3 install tqdm`
 * [cloudpickle 2.0.0](https://github.com/cloudpipe/cloudpickle) `pip3 install cloudpickle`
 
+or with conda...
+conda create -n genofix python=3.10.0
+source activate genofix
+pip3 install pandas matplotlib seaborn pgmpy networkx numpy tqdm cloudpickle
+
 ## main entry points
 `./genofix.py`
 Correct a genotype matrix 
