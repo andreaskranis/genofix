@@ -380,26 +380,11 @@ USAGE
                             else:
                                 pc_real_predicted.append(np.nan)
                                 predicted_x.append(0)
-                                # if np.sum([hasHit(real,real_mat_xover_chr) for real in detected_mat]) == 0:
-                                #     print("detected_mat %s" % detected_mat)
-                                #     print("real_mat_xover_chr %s" % real_mat_xover_chr)
-                                #     print("detected_pat %s" % detected_pat)
-                                #     print("real_pat_xover_chr %s" % real_pat_xover_chr)#print("hasHit %s" % [hasHit(real,real_mat_xover_chr) for real in detected_mat])
-                                #     print("ratio %s %s " % (len(real_mat_xover_chr), np.sum([hasHit(real,real_mat_xover_chr) for real in detected_mat])))
-                                #     print(range(real_mat_xover_chr[0]-10,real_mat_xover_chr[0]+10))
-                                #     region = range(real_mat_xover_chr[0]-10,real_mat_xover_chr[0]+10)
-                                #     print(gens_reference[dam].data[chro][mat_strand][region])
-                                #     print(gens_reference[dam].data[chro][pat_strand][region])
-                                #     print(gens_reference[sire].data[chro][mat_strand][region])
-                                #     print(gens_reference[sire].data[chro][pat_strand][region])
-                                #     print(gens_reference[kid].data[chro][mat_strand][region])
-                                #     print(gens_reference[kid].data[chro][pat_strand][region])
-                                #     sys.exit()
-                                
+
                             if len(real_pat_xover_chr) > 0:
                                 pc_real_predicted.append(
                                     np.sum([hasHit(real,real_pat_xover_chr) for real in detected_pat])/len(real_pat_xover_chr))
-                                predicted_x.append(np.sum([hasHit(real,real_pat_xover_chr) for real in detected_mat]))
+                                predicted_x.append(np.sum([hasHit(real,real_pat_xover_chr) for real in detected_pat]))
                             else:
                                 pc_real_predicted.append(np.nan)
                                 predicted_x.append(0)
@@ -417,15 +402,15 @@ USAGE
         print(len(pc_real_predicted))
         sns.jointplot(x=real_x, y=predicted_x, 
                       kind="hex", color="#4CB391")
-        plt.xlabel('predicted real (%)')
-        plt.ylabel('real predicted (%)')
+        plt.xlabel('predicted real (N)')
+        plt.ylabel('real predicted (N)')
         plt.savefig('%s/REF_hex_histogram_%s.png' % (output_dir,Path(reference_file).name))
         plt.close()
                 
         sns.jointplot(x=real_x, y=predicted_x, 
                       kind="reg", color="#4CB391")
-        plt.xlabel('predicted real (%)')
-        plt.ylabel('real predicted (%)')
+        plt.xlabel('predicted real (N)')
+        plt.ylabel('real predicted (N)')
         plt.savefig('%s/REF_reg_histogram_%s.png' % (output_dir,Path(reference_file).name))
         plt.close()
                 
@@ -496,18 +481,18 @@ USAGE
                                 if len(detected_mat) > 0:
                                     pc_predicted_real.append(
                                     np.sum(true_ones_mat)/ len(detected_mat))
-                                    real.append(np.sum(true_ones_mat))
+                                    real_x.append(np.sum(true_ones_mat))
                                 else:
                                     pc_predicted_real.append(np.nan)
-                                    real.append(0)
+                                    real_x.append(0)
                                 
                                 if len(detected_pat) > 0:
                                     pc_predicted_real.append(
                                         np.sum(true_ones_pat)/ len(detected_pat))
-                                    real.append(np.sum(true_ones_pat))
+                                    real_x.append(np.sum(true_ones_pat))
                                 else:
                                     pc_predicted_real.append(np.nan)
-                                    real.append(0)
+                                    real_x.append(0)
                                 
                                 def hasHit(values, truehits):
                                     for hit in truehits:
@@ -518,7 +503,7 @@ USAGE
                                 if len(real_mat_xover_chr) > 0:
                                     pc_real_predicted.append(
                                         np.sum([hasHit(real,real_mat_xover_chr) for real in detected_mat])/len(real_mat_xover_chr))
-                                    predicted_x.append(np.sum([hasHit(real,real_mat_xover_chr) for real in detected_pat]))
+                                    predicted_x.append(np.sum([hasHit(real,real_mat_xover_chr) for real in detected_mat]))
                                 else:
                                     pc_real_predicted.append(np.nan)
                                     predicted_x.append(0)
@@ -554,15 +539,15 @@ USAGE
             sns.set_theme(style="ticks")
             sns.jointplot(x=real_x, y=predicted_x, 
                           kind="hex", color="#4CB391")
-            plt.xlabel('predicted real (%)')
-            plt.ylabel('real predicted (%)')
+            plt.xlabel('real (N)')
+            plt.ylabel('predicted (N)')
             plt.savefig('%s/hex_histogram_%s.png' % (output_dir,subject_file))
             plt.close()
             
             sns.jointplot(x=real_x, y=predicted_x, 
                       kind="reg", color="#4CB391")
-            plt.xlabel('predicted real (%)')
-            plt.ylabel('real predicted (%)')
+            plt.xlabel('real (N)')
+            plt.ylabel('predicted (N)')
             plt.savefig('%s/reg_histogram_%s.png' % (output_dir,subject_file))
             plt.close()
             
@@ -628,3 +613,20 @@ if __name__ == "__main__":
         statsfile.close()
         sys.exit(0)
     sys.exit(main())
+    
+                                    # if np.sum([hasHit(real,real_mat_xover_chr) for real in detected_mat]) == 0:
+                                #     print("detected_mat %s" % detected_mat)
+                                #     print("real_mat_xover_chr %s" % real_mat_xover_chr)
+                                #     print("detected_pat %s" % detected_pat)
+                                #     print("real_pat_xover_chr %s" % real_pat_xover_chr)#print("hasHit %s" % [hasHit(real,real_mat_xover_chr) for real in detected_mat])
+                                #     print("ratio %s %s " % (len(real_mat_xover_chr), np.sum([hasHit(real,real_mat_xover_chr) for real in detected_mat])))
+                                #     print(range(real_mat_xover_chr[0]-10,real_mat_xover_chr[0]+10))
+                                #     region = range(real_mat_xover_chr[0]-10,real_mat_xover_chr[0]+10)
+                                #     print(gens_reference[dam].data[chro][mat_strand][region])
+                                #     print(gens_reference[dam].data[chro][pat_strand][region])
+                                #     print(gens_reference[sire].data[chro][mat_strand][region])
+                                #     print(gens_reference[sire].data[chro][pat_strand][region])
+                                #     print(gens_reference[kid].data[chro][mat_strand][region])
+                                #     print(gens_reference[kid].data[chro][pat_strand][region])
+                                #     sys.exit()
+                                
