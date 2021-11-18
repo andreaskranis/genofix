@@ -56,6 +56,35 @@ class CLIError(Exception):
     def __unicode__(self):
         return self.msg
 
+def importGenome(snpmap):
+    genomein = pd.read_csv(snpmap, sep=' ', names = ["chrom", "snpid", "cm", "pos"])
+        
+    chromosome2snp = defaultdict(set)
+    #chromosomes = set([row["chrom"] for index, row in genomein.iterrows()])
+    chromosomesnps = {}
+    for index, row in genomein.iterrows():
+        if row["chrom"] not in chromosomesnps:
+            chromosomesnps[row["chrom"]] = 1
+        else:
+            chromosomesnps[row["chrom"]]+=1
+        chromosome2snp[row["chrom"]].add(row["snpid"])
+    print("Chromosomes and n nsnps: %s" % chromosomesnps)
+            
+    genome = gsim.genome.Genome()
+    
+    for index, row in genomein.iterrows():
+        if row["cm"] > 0:
+            genome.add_variant(int(row["chrom"]), snpid=row["snpid"], cm_pos=float(row["cm"])+1)
+    
+    for chrom in genome.chroms.values():
+        chrom.finalise_chrom_configuration()
+    
+    for chrom in genome.chroms.keys():
+        genome.chroms[chrom].cm_pos = genome.chroms[chrom].cm_pos+abs(min(genome.chroms[chrom].cm_pos))
+        genome.chroms[chrom].cm_pos = genome.chroms[chrom].cm_pos/sum(genome.chroms[chrom].cm_pos) 
+        
+    return(genome)
+
 def main(argv=None): # IGNORE:C0111
     '''Command line options.'''
 
@@ -111,8 +140,6 @@ USAGE
         
         pathlib.Path(output_dir).mkdir(parents=True, exist_ok=True)
         
-        genomein = pd.read_csv(snpmap, sep=' ', names = ["chrom", "snpid", "cm", "pos"])
-        
         real_mat_xovers = {}
         real_pat_xovers = {}
         with gzip.open(xover, "rt") as xoverref:
@@ -130,33 +157,12 @@ USAGE
                 if len(pat_xovers) > 0:
                     xovers = [x.split(":") for x in pat_xovers.split("\t") if x != ""]
                     real_pat_xovers[int(values[0])] = {int(chro):[int(x) for x in pos.split(",") if int(x) <= snps_n] for chro,_direct,pos in xovers}
-        
-        chromosome2snp = defaultdict(set)
-        chromosomes = set([row["chrom"] for index, row in genomein.iterrows()])
-        chromosomesnps = {}
-        for index, row in genomein.iterrows():
-            if row["chrom"] not in chromosomesnps:
-                chromosomesnps[row["chrom"]] = 1
-            else:
-                chromosomesnps[row["chrom"]]+=1
-            chromosome2snp[row["chrom"]].add(row["snpid"])
-        print("Chromosomes and n nsnps: %s" % chromosomesnps)
-                
-        genome = gsim.genome.Genome()
-        
-        for index, row in genomein.iterrows():
-            if row["cm"] > 0:
-                genome.add_variant(int(row["chrom"]), snpid=row["snpid"], cm_pos=float(row["cm"])+1)
-        
-        for chrom in genome.chroms.values():
-            chrom.finalise_chrom_configuration()
-        
-        for chrom in genome.chroms.keys():
-            genome.chroms[chrom].cm_pos = genome.chroms[chrom].cm_pos+abs(min(genome.chroms[chrom].cm_pos))
-            genome.chroms[chrom].cm_pos = genome.chroms[chrom].cm_pos/sum(genome.chroms[chrom].cm_pos) 
-        
+
         #dumpToPickle("%s/genome.pickle.gz" % output_dir,genome)
         
+        genome = importGenome(snpmap)
+        
+        chromosomes = sorted(genome.chroms.keys())
         
         reference_pickle_file = "%s/%s.pickle.gz" % (output_dir,Path(reference_file).name)
         if os.path.exists(reference_pickle_file) and os.path.isfile(reference_pickle_file):
@@ -169,6 +175,9 @@ USAGE
                                genome, first_haplo='paternal',
                                mv=9, sep=' ', header=False, random_assign_missing=False)
             dumpToPickle(reference_pickle_file,gens_reference)
+        
+        print("mat ref %s" % gens_reference[3851115161616][1][gens_reference[3851115161616].maternal_strand][1:9])
+        print("pat ref %s" %gens_reference[3851115161616][1][gens_reference[3851115161616].paternal_strand][1:9])
         
         #print("gens_reference: %s" % gens_reference.keys())
         
@@ -209,6 +218,10 @@ USAGE
             #only evaluate kids in reference
             gens_subject = {k:v for k,v in gens_subject.items() if k in gens_reference.keys()}
             subject_file_obj[Path(subject_file).name] = gens_subject
+        
+            print("mat sub %s" % gens_subject[3851115161616][1][gens_subject[3851115161616].maternal_strand][1:9])
+            print("pat sub %s" % gens_subject[3851115161616][1][gens_subject[3851115161616].paternal_strand][1:9])
+        
         
         file2stats_maternal_difference = {}
         file2stats_paternal_difference = {}
@@ -278,12 +291,12 @@ USAGE
             plt.close()
         
         print("stats for %s " % subject_file_obj.keys())
-        for subject_file1, gens_subject1 in subject_file_obj.items():
+        for subject_file1 in subject_file_obj.keys():
             difference_by_chr_mat_1 = file2stats_maternal_difference[subject_file1]
             difference_by_chr_pat_1 = file2stats_paternal_difference[subject_file1]
             called_by_chr_mat_1 = file2stats_maternal_n[subject_file1]
             called_by_chr_pat_1 = file2stats_paternal_n[subject_file1]
-            for subject_file2, gens_subject2 in [(subject_file2, gens_subject2) for subject_file2, gens_subject2 in subject_file_obj.items() if subject_file2 != subject_file1]:
+            for subject_file2 in [subject_file2 for subject_file2 in subject_file_obj.keys() if subject_file2 != subject_file1]:
                 difference_by_chr_mat_2 = file2stats_maternal_difference[subject_file2]
                 difference_by_chr_pat_2 = file2stats_paternal_difference[subject_file2]
                 called_by_chr_mat_2 = file2stats_maternal_n[subject_file2]
@@ -321,40 +334,60 @@ USAGE
             sire, dam = pedigree.get_parents(kid)
             if sire is not None and dam is not None:
                 if sire in gens_reference.keys() and dam in gens_reference.keys() and kid in gens_reference.keys():
-                    crossovers = crossoverdetection.predictCrossoverRegions(gens_reference[kid], gens_reference[sire], gens_reference[dam])
+                    pat_strand = gens_reference[kid].paternal_strand
+                    mat_strand = gens_reference[kid].maternal_strand
+                    crossovers = crossoverdetection.predictCrossoverRegions(gens_reference[kid], 
+                                                                            gens_reference[sire], 
+                                                                            gens_reference[dam],
+                                                                            paternal_strand=pat_strand,
+                                                                            maternal_strand=mat_strand)
                     #print("crossovers: %s" % crossovers)
                     for chro, predictedxover in crossovers.items():
-                        detected_mat = [range(p,p+(leng+1)) for p,leng in zip(predictedxover[0][0], predictedxover[0][1])]
-                        detected_pat = [range(p,p+(leng+1)) for p,leng in zip(predictedxover[1][0], predictedxover[1][1])]
-                        real_mat_xover_chr = real_mat_xovers[kid][chro] if chro in real_mat_xovers[kid] else []
-                        real_pat_xover_chr = real_pat_xovers[kid][chro] if chro in real_pat_xovers[kid] else []
-                        true_ones_mat = [np.any([real in d for real in real_mat_xover_chr]) for d in detected_mat]
-                        true_ones_pat = [np.any([real in d for real in real_pat_xover_chr]) for d in detected_pat]
-                        
-                        if len(detected_mat) > 0:
-                            pc_predicted_real.append(np.sum(true_ones_mat)/ len(detected_mat))
-                        if len(detected_pat) > 0:
-                            pc_predicted_real.append(np.sum(true_ones_pat)/ len(detected_pat))
-                        
-                        def hasHit(values, truehits):
-                            for hit in truehits:
-                                if hit in values:
-                                    return(True)
-                            return(False)
-                        
-                        if len(real_mat_xover_chr) > 0:
-                            #print("detected_mat %s" % detected_mat)
-                            #print("real_mat_xover_chr %s" % real_mat_xover_chr)
-                            #print("hasHit %s" % [hasHit(real,real_mat_xover_chr) for real in detected_mat])
-                            pc_real_predicted.append(
-                                np.sum([hasHit(real,real_mat_xover_chr) for real in detected_mat])/len(real_mat_xover_chr))
-                        if len(real_pat_xover_chr) > 0:
-                            pc_real_predicted.append(
-                                np.sum([hasHit(real,real_pat_xover_chr) for real in detected_pat])/len(real_pat_xover_chr))
-                        
-                        lengths_list.extend(predictedxover[0][1][true_ones_mat])
-                        lengths_list.extend(predictedxover[1][1][true_ones_pat])
-                        
+                        if len(gens_reference[kid].data[chro][mat_strand]) > 0:
+                            detected_mat = [range(p,p+(leng+1)) for p,leng in zip(predictedxover[mat_strand][0], predictedxover[mat_strand][1])]
+                            detected_pat = [range(p,p+(leng+1)) for p,leng in zip(predictedxover[pat_strand][0], predictedxover[pat_strand][1])]
+                            real_mat_xover_chr = real_mat_xovers[kid][chro] if chro in real_mat_xovers[kid] else []
+                            real_pat_xover_chr = real_pat_xovers[kid][chro] if chro in real_pat_xovers[kid] else []
+                            true_ones_mat = [np.any([real in d for real in real_mat_xover_chr]) for d in detected_mat]
+                            true_ones_pat = [np.any([real in d for real in real_pat_xover_chr]) for d in detected_pat]
+                            
+                            if len(detected_mat) > 0:
+                                pc_predicted_real.append(np.sum(true_ones_mat)/ len(detected_mat))
+                            if len(detected_pat) > 0:
+                                pc_predicted_real.append(np.sum(true_ones_pat)/ len(detected_pat))
+                            
+                            def hasHit(values, truehits):
+                                for hit in truehits:
+                                    if hit in values:
+                                        return(True)
+                                return(False)
+                            
+                            if len(real_mat_xover_chr) > 0:
+                                pc_real_predicted.append(
+                                    np.sum([hasHit(real,real_mat_xover_chr) for real in detected_mat])/len(real_mat_xover_chr))
+                                # if np.sum([hasHit(real,real_mat_xover_chr) for real in detected_mat]) == 0:
+                                #     print("detected_mat %s" % detected_mat)
+                                #     print("real_mat_xover_chr %s" % real_mat_xover_chr)
+                                #     print("detected_pat %s" % detected_pat)
+                                #     print("real_pat_xover_chr %s" % real_pat_xover_chr)#print("hasHit %s" % [hasHit(real,real_mat_xover_chr) for real in detected_mat])
+                                #     print("ratio %s %s " % (len(real_mat_xover_chr), np.sum([hasHit(real,real_mat_xover_chr) for real in detected_mat])))
+                                #     print(range(real_mat_xover_chr[0]-10,real_mat_xover_chr[0]+10))
+                                #     region = range(real_mat_xover_chr[0]-10,real_mat_xover_chr[0]+10)
+                                #     print(gens_reference[dam].data[chro][mat_strand][region])
+                                #     print(gens_reference[dam].data[chro][pat_strand][region])
+                                #     print(gens_reference[sire].data[chro][mat_strand][region])
+                                #     print(gens_reference[sire].data[chro][pat_strand][region])
+                                #     print(gens_reference[kid].data[chro][mat_strand][region])
+                                #     print(gens_reference[kid].data[chro][pat_strand][region])
+                                #     sys.exit()
+                                
+                            if len(real_pat_xover_chr) > 0:
+                                pc_real_predicted.append(
+                                    np.sum([hasHit(real,real_pat_xover_chr) for real in detected_pat])/len(real_pat_xover_chr))
+                            
+                            lengths_list.extend(predictedxover[mat_strand][1][true_ones_mat])
+                            lengths_list.extend(predictedxover[pat_strand][1][true_ones_pat])
+                            
                         #print("chr %s" % chro)
                         #paternalxover = [str(p)+"("+str(leng)+")" for p,leng in zip(predictedxover[1][0], predictedxover[1][1])]
                         #print("paternalxover: %s" % ",".join(map(str,paternalxover)))
@@ -399,45 +432,67 @@ USAGE
                 sire, dam = pedigree.get_parents(kid)
                 if sire is not None and dam is not None:
                     if sire in gens_subject.keys() and dam in gens_subject.keys() and kid in gens_subject.keys():
-                        crossovers = crossoverdetection.predictCrossoverRegions(gens_subject[kid], gens_subject[sire], gens_subject[dam])
+                        pat_strand = gens_reference[kid].paternal_strand
+                        mat_strand = gens_reference[kid].maternal_strand
+                        crossovers = crossoverdetection.predictCrossoverRegions(gens_subject[kid]
+                                                                                , gens_subject[sire]
+                                                                                , gens_subject[dam]
+                                                                                , paternal_strand=pat_strand,
+                                                                                maternal_strand=mat_strand)
                         #print("crossovers: %s" % crossovers)
                         for chro, predictedxover in crossovers.items():
-                            detected_mat = [range(p,p+(leng+1)) for p,leng in zip(predictedxover[0][0], predictedxover[0][1])]
-                            detected_pat = [range(p,p+(leng+1)) for p,leng in zip(predictedxover[1][0], predictedxover[1][1])]
-                            real_mat_xover_chr = real_mat_xovers[kid][chro] if chro in real_mat_xovers[kid] else []
-                            real_pat_xover_chr = real_pat_xovers[kid][chro] if chro in real_pat_xovers[kid] else []
-                            true_ones_mat = [np.any([real in d for real in real_mat_xover_chr]) for d in detected_mat]
-                            true_ones_pat = [np.any([real in d for real in real_pat_xover_chr]) for d in detected_pat]
-                            #if len(real_mat_xover_chr) > 0:
-                            #    print("real_mat %s " % real_mat_xover_chr)
-                            #    print("real_pat %s " % real_pat_xover_chr)
-                            #    print("detected_mat %s " % detected_mat)
-                            #    print("detected_pat %s " % detected_pat)
-                            #sys.exit()
-                            if len(detected_mat) > 0:
-                                pc_predicted_real.append(
-                                np.sum(true_ones_mat)/ len(detected_mat))
+                            if len(gens_reference[kid].data[chro][mat_strand]) > 0:
+                                detected_mat = [range(p,p+(leng+1)) for p,leng in zip(predictedxover[mat_strand][0], predictedxover[mat_strand][1])]
+                                detected_pat = [range(p,p+(leng+1)) for p,leng in zip(predictedxover[pat_strand][0], predictedxover[pat_strand][1])]
+                                real_mat_xover_chr = real_mat_xovers[kid][chro] if chro in real_mat_xovers[kid] else []
+                                real_pat_xover_chr = real_pat_xovers[kid][chro] if chro in real_pat_xovers[kid] else []
+                                true_ones_mat = [np.any([real in d for real in real_mat_xover_chr]) for d in detected_mat]
+                                true_ones_pat = [np.any([real in d for real in real_pat_xover_chr]) for d in detected_pat]
+                                #if len(real_mat_xover_chr) > 0:
+                                #    print("real_mat %s " % real_mat_xover_chr)
+                                #    print("real_pat %s " % real_pat_xover_chr)
+                                #    print("detected_mat %s " % detected_mat)
+                                #    print("detected_pat %s " % detected_pat)
+                                #sys.exit()
+                                if len(detected_mat) > 0:
+                                    pc_predicted_real.append(
+                                    np.sum(true_ones_mat)/ len(detected_mat))
+                                    
+                                if len(detected_pat) > 0:
+                                    pc_predicted_real.append(
+                                        np.sum(true_ones_pat)/ len(detected_pat))
                                 
-                            if len(detected_pat) > 0:
-                                pc_predicted_real.append(
-                                    np.sum(true_ones_pat)/ len(detected_pat))
-                            
-                        def hasHit(values, truehits):
-                            for hit in truehits:
-                                if hit in values:
-                                    return(True)
-                            return(False)
-                        
-                        if len(real_mat_xover_chr) > 0:
-                            pc_real_predicted.append(
-                                np.sum([hasHit(real,real_mat_xover_chr) for real in detected_mat])/len(real_mat_xover_chr))
-                        if len(real_pat_xover_chr) > 0:
-                            pc_real_predicted.append(
-                                np.sum([hasHit(real,real_pat_xover_chr) for real in detected_pat])/len(real_pat_xover_chr))
-                        
-                            lengths_list.extend(predictedxover[0][1][true_ones_mat])
-                            lengths_list.extend(predictedxover[1][1][true_ones_pat])
-            
+                                def hasHit(values, truehits):
+                                    for hit in truehits:
+                                        if hit in values:
+                                            return(True)
+                                    return(False)
+                                
+                                if len(real_mat_xover_chr) > 0:
+                                    pc_real_predicted.append(
+                                        np.sum([hasHit(real,real_mat_xover_chr) for real in detected_mat])/len(real_mat_xover_chr))
+                                if len(real_pat_xover_chr) > 0:
+                                    pc_real_predicted.append(
+                                        np.sum([hasHit(real,real_pat_xover_chr) for real in detected_pat])/len(real_pat_xover_chr))
+                                
+                                    lengths_list.extend(predictedxover[mat_strand][1][true_ones_mat])
+                                    lengths_list.extend(predictedxover[pat_strand][1][true_ones_pat])
+                                
+                                # if np.sum([hasHit(real,real_mat_xover_chr) for real in detected_mat]) == 0:
+                                #     print("detected_mat %s" % detected_mat)
+                                #     print("real_mat_xover_chr %s" % real_mat_xover_chr)
+                                #     print("detected_pat %s" % detected_pat)
+                                #     print("real_pat_xover_chr %s" % real_pat_xover_chr)#print("hasHit %s" % [hasHit(real,real_mat_xover_chr) for real in detected_mat])
+                                #     print("ratio %s %s " % (len(real_mat_xover_chr), np.sum([hasHit(real,real_mat_xover_chr) for real in detected_mat])))
+                                #     print(range(real_mat_xover_chr[0]-10,real_mat_xover_chr[0]+10))
+                                #     region = range(real_mat_xover_chr[0]-10,real_mat_xover_chr[0]+10)
+                                #     print(gens_reference[dam].data[chro][mat_strand][region])
+                                #     print(gens_reference[dam].data[chro][pat_strand][region])
+                                #     print(gens_reference[sire].data[chro][mat_strand][region])
+                                #     print(gens_reference[sire].data[chro][pat_strand][region])
+                                #     print(gens_reference[kid].data[chro][mat_strand][region])
+                                #     print(gens_reference[kid].data[chro][pat_strand][region])
+                                #     sys.exit()
             plt.figure()
             n, bins, patches = plt.hist(pc_predicted_real, bins=100, density=False, facecolor='g', alpha=0.75)
             plt.xlabel('pc predicted real')
