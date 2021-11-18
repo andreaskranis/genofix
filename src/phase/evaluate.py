@@ -25,9 +25,9 @@ import quickgsim as gsim
 from collections import defaultdict, Counter
 import gzip
 import mgzip, pickle, psutil
-import numpy as np
 import matplotlib.pyplot as plt
-import seaborn as sb
+import numpy as np
+import seaborn as sns
 from argparse import ArgumentParser
 from argparse import RawDescriptionHelpFormatter
 from quickgsim import genotype, importers
@@ -329,6 +329,8 @@ USAGE
         print("stats for crossovers ")
         pc_predicted_real = []
         pc_real_predicted = []
+        real_x = []
+        predicted_x = []
         lengths_list = []
         for kid in gens_reference.keys():
             sire, dam = pedigree.get_parents(kid)
@@ -353,8 +355,17 @@ USAGE
                             
                             if len(detected_mat) > 0:
                                 pc_predicted_real.append(np.sum(true_ones_mat)/ len(detected_mat))
+                                real_x.append(len(detected_mat))
+                            else:
+                                real_x.append(0)
+                                pc_predicted_real.append(np.nan)
+                                
                             if len(detected_pat) > 0:
                                 pc_predicted_real.append(np.sum(true_ones_pat)/ len(detected_pat))
+                                real_x.append(len(detected_pat))
+                            else:
+                                real_x.append(0)
+                                pc_predicted_real.append(np.nan)
                             
                             def hasHit(values, truehits):
                                 for hit in truehits:
@@ -365,6 +376,10 @@ USAGE
                             if len(real_mat_xover_chr) > 0:
                                 pc_real_predicted.append(
                                     np.sum([hasHit(real,real_mat_xover_chr) for real in detected_mat])/len(real_mat_xover_chr))
+                                predicted_x.append(np.sum([hasHit(real,real_mat_xover_chr) for real in detected_mat]))
+                            else:
+                                pc_real_predicted.append(np.nan)
+                                predicted_x.append(0)
                                 # if np.sum([hasHit(real,real_mat_xover_chr) for real in detected_mat]) == 0:
                                 #     print("detected_mat %s" % detected_mat)
                                 #     print("real_mat_xover_chr %s" % real_mat_xover_chr)
@@ -384,7 +399,11 @@ USAGE
                             if len(real_pat_xover_chr) > 0:
                                 pc_real_predicted.append(
                                     np.sum([hasHit(real,real_pat_xover_chr) for real in detected_pat])/len(real_pat_xover_chr))
-                            
+                                predicted_x.append(np.sum([hasHit(real,real_pat_xover_chr) for real in detected_mat]))
+                            else:
+                                pc_real_predicted.append(np.nan)
+                                predicted_x.append(0)
+                                
                             lengths_list.extend(predictedxover[mat_strand][1][true_ones_mat])
                             lengths_list.extend(predictedxover[pat_strand][1][true_ones_pat])
                             
@@ -392,6 +411,24 @@ USAGE
                         #paternalxover = [str(p)+"("+str(leng)+")" for p,leng in zip(predictedxover[1][0], predictedxover[1][1])]
                         #print("paternalxover: %s" % ",".join(map(str,paternalxover)))
                         #print("real_xovers: %s" % ",".join(map(str,real_xovers[kid][chro])))
+                        
+        sns.set_theme(style="ticks")
+        print(len(pc_predicted_real))
+        print(len(pc_real_predicted))
+        sns.jointplot(x=real_x, y=predicted_x, 
+                      kind="hex", color="#4CB391")
+        plt.xlabel('predicted real (%)')
+        plt.ylabel('real predicted (%)')
+        plt.savefig('%s/REF_hex_histogram_%s.png' % (output_dir,Path(reference_file).name))
+        plt.close()
+                
+        sns.jointplot(x=real_x, y=predicted_x, 
+                      kind="reg", color="#4CB391")
+        plt.xlabel('predicted real (%)')
+        plt.ylabel('real predicted (%)')
+        plt.savefig('%s/REF_reg_histogram_%s.png' % (output_dir,Path(reference_file).name))
+        plt.close()
+                
         plt.figure()
         n, bins, patches = plt.hist(pc_predicted_real, bins=99, density=False, facecolor='g', alpha=0.75)
         plt.xlabel('pc predicted real')
@@ -427,6 +464,8 @@ USAGE
             print("stats for crossovers %s" % subject_file)
             pc_predicted_real = []
             pc_real_predicted = []
+            real_x = []
+            predicted_x = []
             lengths_list = []
             for kid in gens_reference.keys():
                 sire, dam = pedigree.get_parents(kid)
@@ -457,10 +496,18 @@ USAGE
                                 if len(detected_mat) > 0:
                                     pc_predicted_real.append(
                                     np.sum(true_ones_mat)/ len(detected_mat))
-                                    
+                                    real.append(np.sum(true_ones_mat))
+                                else:
+                                    pc_predicted_real.append(np.nan)
+                                    real.append(0)
+                                
                                 if len(detected_pat) > 0:
                                     pc_predicted_real.append(
                                         np.sum(true_ones_pat)/ len(detected_pat))
+                                    real.append(np.sum(true_ones_pat))
+                                else:
+                                    pc_predicted_real.append(np.nan)
+                                    real.append(0)
                                 
                                 def hasHit(values, truehits):
                                     for hit in truehits:
@@ -471,12 +518,21 @@ USAGE
                                 if len(real_mat_xover_chr) > 0:
                                     pc_real_predicted.append(
                                         np.sum([hasHit(real,real_mat_xover_chr) for real in detected_mat])/len(real_mat_xover_chr))
+                                    predicted_x.append(np.sum([hasHit(real,real_mat_xover_chr) for real in detected_pat]))
+                                else:
+                                    pc_real_predicted.append(np.nan)
+                                    predicted_x.append(0)
+                                    
                                 if len(real_pat_xover_chr) > 0:
                                     pc_real_predicted.append(
                                         np.sum([hasHit(real,real_pat_xover_chr) for real in detected_pat])/len(real_pat_xover_chr))
+                                    predicted_x.append(np.sum([hasHit(real,real_pat_xover_chr) for real in detected_pat]))
+                                else:
+                                    pc_real_predicted.append(np.nan)
+                                    predicted_x.append(0)
                                 
-                                    lengths_list.extend(predictedxover[mat_strand][1][true_ones_mat])
-                                    lengths_list.extend(predictedxover[pat_strand][1][true_ones_pat])
+                                lengths_list.extend(predictedxover[mat_strand][1][true_ones_mat])
+                                lengths_list.extend(predictedxover[pat_strand][1][true_ones_pat])
                                 
                                 # if np.sum([hasHit(real,real_mat_xover_chr) for real in detected_mat]) == 0:
                                 #     print("detected_mat %s" % detected_mat)
@@ -493,6 +549,23 @@ USAGE
                                 #     print(gens_reference[kid].data[chro][mat_strand][region])
                                 #     print(gens_reference[kid].data[chro][pat_strand][region])
                                 #     sys.exit()
+                                
+            
+            sns.set_theme(style="ticks")
+            sns.jointplot(x=real_x, y=predicted_x, 
+                          kind="hex", color="#4CB391")
+            plt.xlabel('predicted real (%)')
+            plt.ylabel('real predicted (%)')
+            plt.savefig('%s/hex_histogram_%s.png' % (output_dir,subject_file))
+            plt.close()
+            
+            sns.jointplot(x=real_x, y=predicted_x, 
+                      kind="reg", color="#4CB391")
+            plt.xlabel('predicted real (%)')
+            plt.ylabel('real predicted (%)')
+            plt.savefig('%s/reg_histogram_%s.png' % (output_dir,subject_file))
+            plt.close()
+            
             plt.figure()
             n, bins, patches = plt.hist(pc_predicted_real, bins=100, density=False, facecolor='g', alpha=0.75)
             plt.xlabel('pc predicted real')
