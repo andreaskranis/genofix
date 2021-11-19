@@ -101,7 +101,7 @@ def find_runs(x:ArrayLike, ignorevalue=9) -> Tuple:
 #print(find_runs([0,0,0,0,9,9,9,9,0,1,1,1,1,1,9,9,9], ignorevalue=9))
 
 
-def predictcrosspoints(p:ArrayLike, pp:ArrayLike, pm:ArrayLike, ignorevalue=9) -> ArrayLike:
+def predictcrosspoints(p:ArrayLike, pp:ArrayLike, pm:ArrayLike, ignorevalue=9, paternal_strand=0,maternal_strand=1) -> ArrayLike:
     '''
     p: parental haplotype of indiv
     pm: parental maternal hap
@@ -113,8 +113,8 @@ def predictcrosspoints(p:ArrayLike, pp:ArrayLike, pm:ArrayLike, ignorevalue=9) -
     pm = np.asanyarray(pm) 
     
     hapsource = np.full(len(p), -9)
-    hapsource[np.where(np.equal(pm,p) & np.not_equal(pp,p))] = 0
-    hapsource[np.where(np.equal(pp,p) & np.not_equal(pm,p))] = 1
+    hapsource[np.where(np.equal(pm,p) & np.not_equal(pp,p))] = maternal_strand
+    hapsource[np.where(np.equal(pp,p) & np.not_equal(pm,p))] = paternal_strand
     runvalue, runstart, runlength = find_runs(hapsource,ignorevalue=ignorevalue)
     for i, value in enumerate(runvalue) :
         if value == -9 and len(runvalue) > 1: # i.e. ren(runvalue) == 1 if their are no hetroz stretches in the chromosome
@@ -128,6 +128,15 @@ def predictcrosspoints(p:ArrayLike, pp:ArrayLike, pm:ArrayLike, ignorevalue=9) -
             elif i == (len(runvalue)-1) :
                 hapsource[runstart[i]:runstart[i]+runlength[i]] = runvalue[i-1]
     return(hapsource)
+
+
+
+
+
+print(predictcrosspoints([0,1,0,1,0,0,0,1,0,1,0,1,1,1,1,1,0,1,0,1], 
+                   [0,1,0,1,0,0,0,1,0,1,0,1,1,1,0,0,0,1,1,1], 
+                   [0,1,1,0,0,1,0,1,0,1,0,1,1,1,1,1,0,1,0,1], 
+                   ignorevalue=9, paternal_strand=0,maternal_strand=1))
 
 def indexSnps(snpdetails: Dict[str, Dict[str, str]], snpIds: List[str]) :# -> Tuple[Dict[int,SortedList[Tuple[str,int]]], Dict[int, str], Dict[int, Dict[str, Union[int, float]]]] :
     '''

@@ -60,13 +60,14 @@ def simulatePopulation(nsim,kid,sire,dam,sex):
                     # print("sum of genotypes on chr pp %s pm %s" % (sum(sireobj.genotype[chrom][0]), sum(sireobj.genotype[chrom][1])))
     return(actualCrossPoints, simulatedCrossPoints)
 
-def predictCrossoverRegions(kid, sireobj, damobj) -> Dict[int,Dict[int,Tuple]]:
+def predictCrossoverRegions(kid, sireobj, damobj, paternal_strand=0,maternal_strand=1) -> Dict[int,Dict[int,Tuple]]:
     detectedCrossoverRegions: Dict[int,Dict[int,Tuple]] = {}
     for chrom in kid.data.keys():
         patcr = predictcrosspoints(
             kid.data[chrom][kid.paternal_strand], #paternal strand
             sireobj.data[chrom][kid.paternal_strand], #paternal paternal
-            sireobj.data[chrom][kid.maternal_strand]) #paternal maternal
+            sireobj.data[chrom][kid.maternal_strand], ignorevalue=9, 
+            paternal_strand=kid.paternal_strand,maternal_strand=kid.maternal_strand) #paternal maternal
         runvalue, runstart, runlength = find_runs(patcr)
         exactTransition = [True if i > 0 and runvalue[i-1] < 3 and x < 3 else False for i,x in enumerate(runvalue)]
         starts = runstart[np.logical_or(runvalue == 3,exactTransition)]
@@ -78,7 +79,8 @@ def predictCrossoverRegions(kid, sireobj, damobj) -> Dict[int,Dict[int,Tuple]]:
         matcr = predictcrosspoints(
             kid.data[chrom][kid.maternal_strand],#maternal strand        
             damobj.data[chrom][kid.paternal_strand], #maternal paternal
-            damobj.data[chrom][kid.maternal_strand]) #maternal maternal
+            damobj.data[chrom][kid.maternal_strand], ignorevalue=9,
+            paternal_strand=kid.paternal_strand,maternal_strand=kid.maternal_strand) #maternal maternal
         runvalue, runstart, runlength = find_runs(matcr)
         exactTransition = [True if i > 0 and runvalue[i-1] < 3 and x < 3 else False for i,x in enumerate(runvalue)]
         starts = runstart[np.logical_or(runvalue == 3,exactTransition)]
@@ -87,7 +89,7 @@ def predictCrossoverRegions(kid, sireobj, damobj) -> Dict[int,Dict[int,Tuple]]:
         lengths = xoverlength[np.logical_or(runvalue == 3,exactTransition)]
         matcregion = (starts, lengths)
         
-        detectedCrossoverRegions[chrom] = {0:matcregion, 1:patcregion}
+        detectedCrossoverRegions[chrom] = {maternal_strand:matcregion, paternal_strand:patcregion}
     return(detectedCrossoverRegions)
 
 def writeCrossoverRegionsShortFormat(detectedregions:Dict[int,Dict[int,Tuple]], idkid, file, writemode="wt"):
