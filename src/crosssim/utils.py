@@ -132,11 +132,12 @@ def predictcrosspoints(p:ArrayLike, pp:ArrayLike, pm:ArrayLike, ignorevalue=9, p
 
 
 
-
-print(predictcrosspoints([0,1,0,1,0,0,0,1,0,1,0,1,1,1,1,1,0,1,0,1], 
-                   [0,1,0,1,0,0,0,1,0,1,0,1,1,1,0,0,0,1,1,1], 
-                   [0,1,1,0,0,1,0,1,0,1,0,1,1,1,1,1,0,1,0,1], 
+print(predictcrosspoints(
+    [0,0,1,1,1,1,0,1,1,0,1,0,0,1,1,0,1,1,0,1,0,0,0,1,0,0,1,0,1,0,0,1,0],
+    [0,0,1,1,1,1,0,1,1,0,1,0,0,1,1,0,0,1,0,1,0,0,1,1,0,0,1,0,1,0,0,1,0],
+    [0,0,1,1,1,1,0,1,1,0,1,0,0,1,1,0,0,1,0,1,0,0,1,1,0,0,1,0,1,0,0,1,0],
                    ignorevalue=9, paternal_strand=0,maternal_strand=1))
+
 
 def indexSnps(snpdetails: Dict[str, Dict[str, str]], snpIds: List[str]) :# -> Tuple[Dict[int,SortedList[Tuple[str,int]]], Dict[int, str], Dict[int, Dict[str, Union[int, float]]]] :
     '''

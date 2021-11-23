@@ -266,7 +266,7 @@ USAGE
                     ref_genotype_count = ref_genotype_count+paternal
                     ref_genotype_count_chr[chro] = ref_genotype_count_chr[chro]+maternal
                     ref_genotype_count_chr[chro] = ref_genotype_count_chr[chro]+paternal
-                    
+                        
             print("diff by chromosome mat: %s" % difference_by_chr_mat)
             print("diff by chromosome pat: %s" % difference_by_chr_pat)
             print("by chromosome: %s" % (sorted(ref_genotype_count_chr.items())))
@@ -280,9 +280,9 @@ USAGE
             plt.close()
             
             fig = plt.figure()
-            mat = plt.plot(list(chromosomes), [difference_by_chr_mat[chro]/called_by_chr_mat[chro] for chro in chromosomes], 
+            mat = plt.plot([chro for chro in chromosomes if called_by_chr_mat[chro] > 0], [difference_by_chr_mat[chro]/called_by_chr_mat[chro] for chro in chromosomes if called_by_chr_mat[chro] > 0], 
                                  'o', color='pink');
-            pat = plt.plot(list(chromosomes), [difference_by_chr_pat[chro]/called_by_chr_pat[chro] for chro in chromosomes],
+            pat = plt.plot([chro for chro in chromosomes if called_by_chr_pat[chro] > 0], [difference_by_chr_pat[chro]/called_by_chr_pat[chro] for chro in chromosomes if called_by_chr_pat[chro] > 0],
                                   'o', color='blue');
             plt.ylabel('pc error in called haplotype\n%s' % subject_file)
             plt.xlabel('Chromosome')
@@ -353,18 +353,19 @@ USAGE
                             true_ones_mat = [np.any([real in d for real in real_mat_xover_chr]) for d in detected_mat]
                             true_ones_pat = [np.any([real in d for real in real_pat_xover_chr]) for d in detected_pat]
                             
+                            real_x.append(len(real_mat_xover_chr))
+                            real_x.append(len(real_pat_xover_chr))
+                            predicted_x.append(len(real_mat_xover_chr))
+                            predicted_x.append(len(real_pat_xover_chr))
+                                
                             if len(detected_mat) > 0:
                                 pc_predicted_real.append(np.sum(true_ones_mat)/ len(detected_mat))
-                                real_x.append(len(detected_mat))
                             else:
-                                real_x.append(0)
                                 pc_predicted_real.append(np.nan)
                                 
                             if len(detected_pat) > 0:
                                 pc_predicted_real.append(np.sum(true_ones_pat)/ len(detected_pat))
-                                real_x.append(len(detected_pat))
                             else:
-                                real_x.append(0)
                                 pc_predicted_real.append(np.nan)
                             
                             def hasHit(values, truehits):
@@ -376,18 +377,14 @@ USAGE
                             if len(real_mat_xover_chr) > 0:
                                 pc_real_predicted.append(
                                     np.sum([hasHit(real,real_mat_xover_chr) for real in detected_mat])/len(real_mat_xover_chr))
-                                predicted_x.append(np.sum([hasHit(real,real_mat_xover_chr) for real in detected_mat]))
                             else:
                                 pc_real_predicted.append(np.nan)
-                                predicted_x.append(0)
 
                             if len(real_pat_xover_chr) > 0:
                                 pc_real_predicted.append(
                                     np.sum([hasHit(real,real_pat_xover_chr) for real in detected_pat])/len(real_pat_xover_chr))
-                                predicted_x.append(np.sum([hasHit(real,real_pat_xover_chr) for real in detected_pat]))
                             else:
                                 pc_real_predicted.append(np.nan)
-                                predicted_x.append(0)
                                 
                             lengths_list.extend(predictedxover[mat_strand][1][true_ones_mat])
                             lengths_list.extend(predictedxover[pat_strand][1][true_ones_pat])
@@ -396,17 +393,28 @@ USAGE
                         #paternalxover = [str(p)+"("+str(leng)+")" for p,leng in zip(predictedxover[1][0], predictedxover[1][1])]
                         #print("paternalxover: %s" % ",".join(map(str,paternalxover)))
                         #print("real_xovers: %s" % ",".join(map(str,real_xovers[kid][chro])))
-                        
+        real_x = np.array(real_x, dtype=int)  
+        predicted_x = np.array(predicted_x, dtype=int)
+            
         sns.set_theme(style="ticks")
-        print(len(pc_predicted_real))
-        print(len(pc_real_predicted))
+        print(Counter(real_x))
+        print(Counter(predicted_x))
         sns.jointplot(x=real_x, y=predicted_x, 
                       kind="hex", color="#4CB391")
         plt.xlabel('predicted real (N)')
         plt.ylabel('real predicted (N)')
         plt.savefig('%s/REF_hex_histogram_%s.png' % (output_dir,Path(reference_file).name))
         plt.close()
-                
+        print(Counter(np.where(np.array(real_x) == 0, 0, np.log(real_x))))
+        print(Counter(np.where(np.array(predicted_x) == 0, 0, np.log(predicted_x))))
+        sns.set_theme(style="ticks")
+        sns.jointplot(x=real_x, y=np.where(predicted_x == 0, 0, np.log(predicted_x)), 
+                      kind="hex", color="#4CB391")
+        plt.xlabel('real (N)')
+        plt.ylabel('predicted (log N)')
+        plt.savefig('%s/REF_hex_histogram_%s_log.png' % (output_dir,Path(reference_file).name))
+        plt.close()
+        
         sns.jointplot(x=real_x, y=predicted_x, 
                       kind="reg", color="#4CB391")
         plt.xlabel('predicted real (N)')
@@ -452,12 +460,12 @@ USAGE
             real_x = []
             predicted_x = []
             lengths_list = []
-            for kid in gens_reference.keys():
+            for kid in gens_subject.keys():
                 sire, dam = pedigree.get_parents(kid)
                 if sire is not None and dam is not None:
                     if sire in gens_subject.keys() and dam in gens_subject.keys() and kid in gens_subject.keys():
-                        pat_strand = gens_reference[kid].paternal_strand
-                        mat_strand = gens_reference[kid].maternal_strand
+                        pat_strand = gens_subject[kid].paternal_strand
+                        mat_strand = gens_subject[kid].maternal_strand
                         crossovers = crossoverdetection.predictCrossoverRegions(gens_subject[kid]
                                                                                 , gens_subject[sire]
                                                                                 , gens_subject[dam]
@@ -465,34 +473,63 @@ USAGE
                                                                                 maternal_strand=mat_strand)
                         #print("crossovers: %s" % crossovers)
                         for chro, predictedxover in crossovers.items():
-                            if len(gens_reference[kid].data[chro][mat_strand]) > 0:
+                            if len(gens_subject[kid].data[chro][mat_strand]) > 0:
                                 detected_mat = [range(p,p+(leng+1)) for p,leng in zip(predictedxover[mat_strand][0], predictedxover[mat_strand][1])]
                                 detected_pat = [range(p,p+(leng+1)) for p,leng in zip(predictedxover[pat_strand][0], predictedxover[pat_strand][1])]
                                 real_mat_xover_chr = real_mat_xovers[kid][chro] if chro in real_mat_xovers[kid] else []
                                 real_pat_xover_chr = real_pat_xovers[kid][chro] if chro in real_pat_xovers[kid] else []
                                 true_ones_mat = [np.any([real in d for real in real_mat_xover_chr]) for d in detected_mat]
                                 true_ones_pat = [np.any([real in d for real in real_pat_xover_chr]) for d in detected_pat]
-                                #if len(real_mat_xover_chr) > 0:
-                                #    print("real_mat %s " % real_mat_xover_chr)
-                                #    print("real_pat %s " % real_pat_xover_chr)
-                                #    print("detected_mat %s " % detected_mat)
-                                #    print("detected_pat %s " % detected_pat)
-                                #sys.exit()
+                                
+                                real_x.append(len(real_mat_xover_chr))
+                                real_x.append(len(real_pat_xover_chr))
+                                predicted_x.append(len(detected_mat))
+                                predicted_x.append(len(detected_pat))
+                                
+                                #real_mat [1498] 
+                                #real_pat [267, 3003, 3492] 
+                                #detected_mat 382 
+                                #detected_pat 473 
+                                #true_ones_mat 1 
+                                #true_ones_pat 1 
+
+                                #===============================================
+                                # if len(real_mat_xover_chr) > 0:
+                                #     print("real_mat %s " % real_mat_xover_chr)
+                                #     print("real_pat %s " % real_pat_xover_chr)
+                                #     print("detected_mat %s " % len(detected_mat))
+                                #     print("detected_pat %s " % len(detected_pat))
+                                #     print("true_ones_mat %s " % np.sum(true_ones_mat))
+                                #     print("true_ones_pat %s " % np.sum(true_ones_pat))
+                                #     
+                                #     true_ones_mat = [np.any([real in d for real in real_mat_xover_chr]) for d in detected_pat]
+                                #     true_ones_pat = [np.any([real in d for real in real_pat_xover_chr]) for d in detected_mat]
+                                #     print("true_ones_mat %s " % np.sum(true_ones_mat))
+                                #     print("true_ones_pat %s " % np.sum(true_ones_pat))
+                                #     
+                                #     print(detected_mat)
+                                #     print(detected_pat)
+                                #     
+                                #     print(gens_subject[kid].data[chro][pat_strand][min(detected_mat[0])-17:max(detected_mat[0])+10])
+                                #     print(gens_subject[kid].data[chro][mat_strand][min(detected_mat[0])-17:max(detected_mat[0])+10])
+                                #     print(gens_subject[dam].data[chro][pat_strand][min(detected_mat[0])-17:max(detected_mat[0])+10])
+                                #     print(gens_subject[dam].data[chro][mat_strand][min(detected_mat[0])-17:max(detected_mat[0])+10])
+                                #     print(gens_subject[sire].data[chro][pat_strand][min(detected_mat[0])-17:max(detected_mat[0])+10])
+                                #     print(gens_subject[sire].data[chro][mat_strand][min(detected_mat[0])-17:max(detected_mat[0])+10])
+                                #     
+                                #     sys.exit()
+                                #===============================================
                                 if len(detected_mat) > 0:
                                     pc_predicted_real.append(
                                     np.sum(true_ones_mat)/ len(detected_mat))
-                                    real_x.append(np.sum(true_ones_mat))
                                 else:
                                     pc_predicted_real.append(np.nan)
-                                    real_x.append(0)
                                 
                                 if len(detected_pat) > 0:
                                     pc_predicted_real.append(
                                         np.sum(true_ones_pat)/ len(detected_pat))
-                                    real_x.append(np.sum(true_ones_pat))
                                 else:
                                     pc_predicted_real.append(np.nan)
-                                    real_x.append(0)
                                 
                                 def hasHit(values, truehits):
                                     for hit in truehits:
@@ -503,19 +540,15 @@ USAGE
                                 if len(real_mat_xover_chr) > 0:
                                     pc_real_predicted.append(
                                         np.sum([hasHit(real,real_mat_xover_chr) for real in detected_mat])/len(real_mat_xover_chr))
-                                    predicted_x.append(np.sum([hasHit(real,real_mat_xover_chr) for real in detected_mat]))
                                 else:
                                     pc_real_predicted.append(np.nan)
-                                    predicted_x.append(0)
                                     
                                 if len(real_pat_xover_chr) > 0:
                                     pc_real_predicted.append(
                                         np.sum([hasHit(real,real_pat_xover_chr) for real in detected_pat])/len(real_pat_xover_chr))
-                                    predicted_x.append(np.sum([hasHit(real,real_pat_xover_chr) for real in detected_pat]))
                                 else:
                                     pc_real_predicted.append(np.nan)
-                                    predicted_x.append(0)
-                                
+                                                               
                                 lengths_list.extend(predictedxover[mat_strand][1][true_ones_mat])
                                 lengths_list.extend(predictedxover[pat_strand][1][true_ones_pat])
                                 
@@ -534,7 +567,8 @@ USAGE
                                 #     print(gens_reference[kid].data[chro][mat_strand][region])
                                 #     print(gens_reference[kid].data[chro][pat_strand][region])
                                 #     sys.exit()
-                                
+            real_x = np.array(real_x, dtype=int)  
+            predicted_x = np.array(predicted_x, dtype=int)
             
             sns.set_theme(style="ticks")
             sns.jointplot(x=real_x, y=predicted_x, 
@@ -544,8 +578,19 @@ USAGE
             plt.savefig('%s/hex_histogram_%s.png' % (output_dir,subject_file))
             plt.close()
             
-            sns.jointplot(x=real_x, y=predicted_x, 
-                      kind="reg", color="#4CB391")
+            sns.set_theme(style="ticks")
+            sns.jointplot(x=np.where(real_x != 0, np.log(real_x), 0), 
+                          y=np.where(predicted_x != 0, np.log(predicted_x), 0), 
+                      kind="hex", color="#4CB391")
+            plt.xlabel('real (N)')
+            plt.ylabel('predicted (N)')
+            plt.savefig('%s/hex_histogram_%s_log.png' % (output_dir,subject_file))
+            plt.close()
+            
+            print(Counter(np.array(predicted_x)))
+            print(Counter(np.array(real_x)))
+            
+            sns.jointplot(x=real_x, y=predicted_x, kind="reg", color="#4CB391")#)
             plt.xlabel('real (N)')
             plt.ylabel('predicted (N)')
             plt.savefig('%s/reg_histogram_%s.png' % (output_dir,subject_file))
