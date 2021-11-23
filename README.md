@@ -11,6 +11,9 @@ Using empirical and Bayesian probabilistic models of Mendelian inheritance to fi
 * [numpy 1.21](https://numpy.org/) `pip3 install numpy`
 * [tqdm 4.62.3](https://github.com/tqdm/tqdm) `pip3 install tqdm`
 * [cloudpickle 2.0.0](https://github.com/cloudpipe/cloudpickle) `pip3 install cloudpickle`
+* mgzip
+* psutil
+* sortedcontainers
 
 or with conda...
 
@@ -18,7 +21,7 @@ or with conda...
 
 `source activate genofix`
 
-`pip3 install pandas matplotlib seaborn pgmpy networkx numpy tqdm cloudpickle`
+`pip3 install pandas matplotlib seaborn pgmpy networkx numpy tqdm cloudpickle mgzip psutil sortedcontainers`
 
 ## main entry points
 `./genofix.py`
