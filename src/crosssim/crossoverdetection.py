@@ -60,7 +60,8 @@ def simulatePopulation(nsim,kid,sire,dam,sex):
                     # print("sum of genotypes on chr pp %s pm %s" % (sum(sireobj.genotype[chrom][0]), sum(sireobj.genotype[chrom][1])))
     return(actualCrossPoints, simulatedCrossPoints)
 
-def predictCrossoverRegions(kid, sireobj, damobj,maternal_strand=0, paternal_strand=1, min_flank_support=0, min_flank_support_fraction=0.01) -> Dict[int,Dict[int,Tuple]]:
+def predictCrossoverRegions(kid, sireobj, damobj,maternal_strand=0, paternal_strand=1, 
+                            min_flank_support=0, min_flank_support_fraction=0.01) -> Dict[int,Dict[int,Tuple]]:
     detectedCrossoverRegions: Dict[int,Dict[int,Tuple]] = {}
     for chrom in kid.data.keys():
         patcr, patcalls  = predictcrosspoints(
