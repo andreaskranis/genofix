@@ -70,18 +70,30 @@ def read_snps(genome,inFile,id_col=None,chr_col=1,cm_col=None,sep=",",header=Tru
             genome.chroms[chrom].finalise_chrom_configuration()
 
 
-def read_real_haplos(inFile, genome, first_haplo='maternal',mv=9,sep=None,header=False,random_assign_missing=True):
+def read_real_haplos(inFile, genome, first_haplo='maternal', snp_order=None,mv=9,sep=None,header=False,random_assign_missing=True):
     gens = {}
     _SWITCH = {0:1,1:0}
     strand = 0
     first_haplo_mat = True if first_haplo in ['maternal','m', 'mat', 'f'] else False
-    
+    if first_haplo_mat :
+        print("Maternal First")
+    else:
+        print("Paternal First")
+    if snp_order is not None:
+        print("snp_order: %s" % snp_order[1:5])
+    observed_order = None
     with gzip.open(inFile,"rt") if inFile.endswith("gz") else open(inFile,"rt") as fin:
         if header:
-            next(fin)
+            observed_order = [x for x in next(fin).strip().replace("#","").split(sep)]
+            observed_order = [x for x in observed_order if x != "" and x != "ID"]
+            indexorder = np.array([observed_order.index(x) for x in snp_order if x in observed_order])
+            print("observed_order: %s" % observed_order[1:5])
+            print("indexorder: %s" % indexorder[1:5])
         for row in tqdm.tqdm(fin):
             tmp = row.strip().split(sep)
             tag,g = int(tmp[0]),np.array(tmp[1:],dtype=np.ushort)
+            if snp_order is not None and observed_order is not None:
+                g = g[indexorder]
             if tag not in gens:
                 gens[tag] = Genotype(genome.chroms)
                 if first_haplo_mat:
@@ -90,7 +102,8 @@ def read_real_haplos(inFile, genome, first_haplo='maternal',mv=9,sep=None,header
                     strand = gens[tag].paternal_strand
             else:
                 strand = _SWITCH[strand]
-            
+            if tag == 4004165532145:
+                print("%s %s %s " % (tag, strand, g[0:9]))
             st_pos = 0
             for c in gens[tag].iterate_chroms():
                 end_pos = st_pos + genome.chroms[c].nvars

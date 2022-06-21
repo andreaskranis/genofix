@@ -96,16 +96,17 @@ def find_runs(x:ArrayLike, ignorevalue=9) -> Tuple:
         return run_values, run_starts, run_lengths
 
 #print(find_runs([9,9,9,0,0,0,0,1,1,1,1,1], ignorevalue=9))
-#print(find_runs([0,0,0,0,9,9,9,9,1,1,1,1,1], ignorevalue=9))
+print(find_runs([0,0,0,0,9,9,9,9,1,1,1,1,1], ignorevalue=9))
 #print(find_runs([0,0,0,0,9,9,9,9,0,1,1,1,1,1], ignorevalue=9))
 #print(find_runs([0,0,0,0,9,9,9,9,0,1,1,1,1,1,9,9,9], ignorevalue=9))
-
 
 def predictcrosspoints(p:ArrayLike, pp:ArrayLike, pm:ArrayLike, ignorevalue=9, paternal_strand=0,maternal_strand=1) -> ArrayLike:
     '''
     p: parental haplotype of indiv
     pm: parental maternal hap
     pp: parental paternal hap
+    
+    error tolerance...only id crosspoints where the left and right in a window have sufficant evidence
     '''
     # ensure array
     p = np.asanyarray(p) 
@@ -115,6 +116,8 @@ def predictcrosspoints(p:ArrayLike, pp:ArrayLike, pm:ArrayLike, ignorevalue=9, p
     hapsource = np.full(len(p), -9)
     hapsource[np.where(np.equal(pm,p) & np.not_equal(pp,p))] = maternal_strand
     hapsource[np.where(np.equal(pp,p) & np.not_equal(pm,p))] = paternal_strand
+    hapsource[np.where(np.equal(p,9) | np.equal(pm,9) | np.equal(pp,9))] = -9
+    calls = hapsource.copy()
     runvalue, runstart, runlength = find_runs(hapsource,ignorevalue=ignorevalue)
     for i, value in enumerate(runvalue) :
         if value == -9 and len(runvalue) > 1: # i.e. ren(runvalue) == 1 if their are no hetroz stretches in the chromosome
@@ -127,17 +130,75 @@ def predictcrosspoints(p:ArrayLike, pp:ArrayLike, pm:ArrayLike, ignorevalue=9, p
                 hapsource[runstart[i]:runstart[i]+runlength[i]] = runvalue[i+1]
             elif i == (len(runvalue)-1) :
                 hapsource[runstart[i]:runstart[i]+runlength[i]] = runvalue[i-1]
-    return(hapsource)
+    return(hapsource, calls)
 
 
+matcr, calls = predictcrosspoints([1,1,1,1,1,0,1,1,0,0,0,1,0,0,0,0,1,0,1,1,1],
+                           [1,0,1,1,0,1,0,9,0,0,1,1,0,0,0,0,1,0,1,1,1],
+                           [1,1,1,1,1,0,1,1,0,0,0,0,1,1,0,0,1,0,1,1,1])
 
+print(matcr)
+print(calls)
 
-print(predictcrosspoints(
-    [0,0,1,1,1,1,0,1,1,0,1,0,0,1,1,0,1,1,0,1,0,0,0,1,0,0,1,0,1,0,0,1,0],
-    [0,0,1,1,1,1,0,1,1,0,1,0,0,1,1,0,0,1,0,1,0,0,1,1,0,0,1,0,1,0,0,1,0],
-    [0,0,1,1,1,1,0,1,1,0,1,0,0,1,1,0,0,1,0,1,0,0,1,1,0,0,1,0,1,0,0,1,0],
-                   ignorevalue=9, paternal_strand=0,maternal_strand=1))
+runvalue, runstart, runlength = find_runs(matcr)
+print("%s %s %s" % (runvalue, runstart, runlength))
 
+print([np.sum(calls[s:s+e] >=0)/e for s,e in zip(runstart[runvalue >=0], runlength[runvalue >=0])])
+
+#matcr = predictcrosspoints([0,0,0,1,1,1,0,0,0,1,0,0,1,1,0,0,1,0,1,0,1,0],
+#[0,0,1,0,0,0,0,0,1,0,1,0,1,0,0,1,1,0,1,0,1,0],
+#[0,0,0,1,1,1,0,0,0,1,0,9,1,1,0,0,1,0,1,0,1,0] )
+#print(matcr)
+#===============================================================================
+# matcr = predictcrosspoints(
+#     [1,1,1,0,1,1,0,0,0,1,0,0,1,0,0,0,0,0,0,1,0,0,1,0,0,1,0,0,0,1,1,1,0,1,0,1,0
+# ,1,1,0,1,0,0,1,1,1,1,0,1,0,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,1,1,0,1,0,1,1,1,1
+# ,0,0,1,0,0,0,0,1,1,1,0,0,1,0,1,1,1,0,1,0,0,0,1,0,0,0,1,0,0,1,1,1,0,1,1,1,1
+# ,1,0,0,0,0,1,1,1,1,0,1,1,0,0,1,0,1,1,1,1,1,1,1,0,1,0,1,0,1,0,0,1,1,1,0,0,1
+# ,1,1,0,1,0,0,1,1,1,0,0,0,0,0,0,0,0,1,1,1,0,0,0,1,0,1,0,1,1,1,0,1,0,0,0,0,1
+# ,0,1,1,0,0,1,0,1,1,1,1,1,0,1,0,0,0,0,1,0,1,1,1,0,0,1,0,0,0,0,1,1,0,1,1],
+# [1,1,1,0,1,1,0,0,0,1,0,0,1,0,0,0,0,0,0,1,0,0,1,0,0,1,0,0,0,1,1,1,0,1,0,1,0
+# ,1,1,0,1,0,0,1,1,1,1,0,1,0,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,1,1,0,1,0,1,1,1,1
+# ,0,0,1,0,0,0,0,1,1,1,0,0,1,0,1,1,1,0,1,0,0,0,1,0,0,0,1,0,0,1,1,1,0,1,1,1,1
+# ,1,0,0,0,0,1,1,1,1,0,1,1,0,0,1,0,1,1,1,1,1,1,1,0,1,0,1,0,1,0,0,1,1,1,0,0,1
+# ,1,1,0,1,0,0,1,1,1,0,0,0,0,0,0,0,0,1,1,1,0,0,0,1,0,1,0,1,1,1,0,1,0,0,0,0,1
+# ,0,1,1,0,0,1,0,1,1,1,1,1,0,1,0,0,0,0,1,0,1,1,1,0,0,0,1,1,0,1,1,0,1,0,1],
+# [1,0,1,0,0,1,1,1,0,0,0,0,1,0,0,0,0,0,0,1,0,0,1,0,0,1,0,0,0,1,1,1,0,1,0,1,0
+# ,1,1,0,1,0,0,1,1,1,1,0,1,0,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,1,1,0,1,0,1,1,1,1
+# ,0,0,1,0,0,0,0,1,1,1,0,0,1,0,1,1,1,0,1,0,0,0,1,0,0,0,1,0,0,1,1,1,0,1,1,1,1
+# ,1,0,0,0,0,1,1,1,1,0,1,1,0,0,1,0,1,1,1,1,1,1,1,0,1,0,1,0,1,0,0,1,1,1,0,0,1
+# ,1,1,0,1,0,0,1,1,1,0,0,0,0,0,0,0,0,1,1,1,0,0,0,1,0,1,0,1,1,1,0,1,0,0,0,0,1
+# ,0,1,1,0,0,1,0,1,1,1,1,1,0,1,0,0,0,0,1,0,1,1,1,0,0,1,0,0,0,0,1,1,0,1,1],
+#                    ignorevalue=9, paternal_strand=0,maternal_strand=1)
+# print(matcr)
+# runvalue, runstart, runlength = find_runs(matcr)
+# exactTransition = [True if i > 0 and runvalue[i-1] < 3 and x < 3 else False for i,x in enumerate(runvalue)]
+# xovers_i = np.where(np.logical_or(runvalue == 3,exactTransition))[0]
+# xovers_i = xovers_i[np.logical_and(xovers_i > 0, xovers_i < len(runvalue)-1)]
+# starts = runstart[xovers_i]
+# xoverlength = runlength
+# xoverlength[exactTransition] = 0
+# lengths = xoverlength[xovers_i]
+# before_length = runlength[xovers_i-1]
+# after_length = runlength[xovers_i+1]
+# min_flank_phase = 0
+# if min_flank_phase is not None:
+#     qualify = np.bitwise_and(after_length > min_flank_phase, before_length > min_flank_phase)
+#     matcregion = (starts[qualify], lengths[qualify])
+# else:
+#     matcregion = (starts, lengths)
+# print(matcregion)
+#===============================================================================
+
+#===============================================================================
+# predictedxover = {0: (np.array([677]), np.array([200])), 1: (np.array([ 674, 1785, 3541]), np.array([379,   3,   1]))}
+# detected_mat = [range(p,p+(leng+1)) for p,leng in zip(predictedxover[0][0], predictedxover[0][1])]
+# detected_pat = [range(p,p+(leng+1)) for p,leng in zip(predictedxover[1][0], predictedxover[1][1])]
+#                                     
+# print(predictedxover)
+# print(detected_mat)
+# print(detected_pat)
+#===============================================================================
 
 def indexSnps(snpdetails: Dict[str, Dict[str, str]], snpIds: List[str]) :# -> Tuple[Dict[int,SortedList[Tuple[str,int]]], Dict[int, str], Dict[int, Dict[str, Union[int, float]]]] :
     '''

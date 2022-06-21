@@ -109,7 +109,8 @@ USAGE
         parser.add_argument("-M", "--minimum_cluster_size", dest="minimum_cluster_size", type=float, required=False,  help="set to turn on ld partitioning of pedigree (recomend 10-15 clusters with min 150)")
         parser.add_argument("-E", "--elimination_order", dest="elimination_order", type=str, required=False, default="weightedminfill", choices=["weightedminfill","minneighbors","minweight","minfill"], help="elimination order in mendel prob calculation")
         parser.add_argument("-T", "--threads", dest="threads", type=int, required=False, default=multiprocessing.cpu_count(),  help="weight of empirical vs collected medelian error when ranking snps by error probability")
-        parser.add_argument('-V', '--version', action='version', version=program_version_message)
+        parser.add_argument("-T", "--threads", dest="threads", type=int, required=False, default=multiprocessing.cpu_count(),  help="weight of empirical vs collected medelian error when ranking snps by error probability")
+        parser.add_argument('-M', '--microarray_errors', action='microarray_errors', action='store_true', default=False, help="model errors as microarray hmz<->htz swich errors")
         
         # Process arguments
         args = parser.parse_args()
@@ -124,7 +125,7 @@ USAGE
         elimination_order = str(args.elimination_order)
         first_n_snps  = args.first_n_snps
         chunk_n = args.chunk
-    
+        microarray_errors = args.microarray_errors
         threshold_singles = float(args.threshold_singles)
         threshold_pairs = float(args.threshold_pairs)
         surround_size = int(args.surround_size)
@@ -323,9 +324,17 @@ USAGE
             print("inserting errors into simulated genotypes...")
             for kid, SNP_id in tqdm(list(zip(individuals, positionsmutate))):
                 actual = genotypes_with_errors.loc[kid, SNP_id]
-                target = actual
-                while target == actual:
-                    target = rs.integers(size=1, low=0, high=3)
+                
+                if not microarray_errors:
+                    target = actual
+                    while target == actual:
+                        target = rs.integers(size=1, low=0, high=3)
+                else :
+                    if actual == 0 or actual == 2:
+                        target = 1
+                    elif actual == 1:
+                        target = rs.choice([1,3])
+                        
                 genotypes_with_errors.loc[kid, SNP_id] = target
             
             genotypes_with_errors.to_csv("%s/simulatedgenome_with_%serrors.ssv.gz" % (out_dir, error_rate), sep=" ", compression='gzip')

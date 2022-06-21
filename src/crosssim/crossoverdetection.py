@@ -60,35 +60,65 @@ def simulatePopulation(nsim,kid,sire,dam,sex):
                     # print("sum of genotypes on chr pp %s pm %s" % (sum(sireobj.genotype[chrom][0]), sum(sireobj.genotype[chrom][1])))
     return(actualCrossPoints, simulatedCrossPoints)
 
-def predictCrossoverRegions(kid, sireobj, damobj, paternal_strand=0,maternal_strand=1) -> Dict[int,Dict[int,Tuple]]:
+def predictCrossoverRegions(kid, sireobj, damobj,maternal_strand=0, paternal_strand=1, min_flank_support=0, min_flank_support_fraction=0.01) -> Dict[int,Dict[int,Tuple]]:
     detectedCrossoverRegions: Dict[int,Dict[int,Tuple]] = {}
     for chrom in kid.data.keys():
-        patcr = predictcrosspoints(
-            kid.data[chrom][kid.paternal_strand], #paternal strand
-            sireobj.data[chrom][kid.paternal_strand], #paternal paternal
-            sireobj.data[chrom][kid.maternal_strand], ignorevalue=9, 
-            paternal_strand=kid.paternal_strand,maternal_strand=kid.maternal_strand) #paternal maternal
+        patcr, patcalls  = predictcrosspoints(
+            kid.data[chrom][paternal_strand], #paternal strand
+            sireobj.data[chrom][paternal_strand], #paternal paternal
+            sireobj.data[chrom][maternal_strand], ignorevalue=9, 
+            paternal_strand=paternal_strand,maternal_strand=maternal_strand) #paternal maternal
         runvalue, runstart, runlength = find_runs(patcr)
+        supportForBlock = np.array([np.sum(patcalls[s:s+e] == v) for s,e,v in zip(runstart, runlength, runvalue)])
+        supportForBlock_fraction = np.array([np.sum(patcalls[s:s+e] == v)/e for s,e,v in zip(runstart, runlength, runvalue)])
+        
         exactTransition = [True if i > 0 and runvalue[i-1] < 3 and x < 3 else False for i,x in enumerate(runvalue)]
-        starts = runstart[np.logical_or(runvalue == 3,exactTransition)]
+        
+        xovers_i = np.where(np.logical_or(runvalue == 3,exactTransition))[0]
+        xovers_i = xovers_i[np.logical_and(xovers_i > 0, xovers_i < len(runvalue)-1)]
+        starts = runstart[xovers_i]
         xoverlength = runlength
         xoverlength[exactTransition] = 0
-        lengths = xoverlength[np.logical_or(runvalue == 3,exactTransition)]
-        patcregion = (starts, lengths)
+        lengths = xoverlength[xovers_i]
+        before_length = supportForBlock[xovers_i-1]
+        after_length = supportForBlock[xovers_i+1]
+        before_fraction = supportForBlock_fraction[xovers_i-1]
+        after_fraction = supportForBlock_fraction[xovers_i+1]
+        if min_flank_support > 0:
+            qualify = np.bitwise_and(np.bitwise_and(after_length >= min_flank_support, before_length >= min_flank_support),
+                                     np.bitwise_and(before_fraction >= min_flank_support_fraction, after_fraction >= min_flank_support_fraction))
+            patcregion = (starts[qualify], lengths[qualify])
+        else:
+            patcregion = (starts, lengths)
         
-        matcr = predictcrosspoints(
-            kid.data[chrom][kid.maternal_strand],#maternal strand        
-            damobj.data[chrom][kid.paternal_strand], #maternal paternal
-            damobj.data[chrom][kid.maternal_strand], ignorevalue=9,
-            paternal_strand=kid.paternal_strand,maternal_strand=kid.maternal_strand) #maternal maternal
+        matcr, patcalls = predictcrosspoints(
+            kid.data[chrom][maternal_strand],#maternal strand        
+            damobj.data[chrom][paternal_strand], #maternal paternal
+            damobj.data[chrom][maternal_strand], ignorevalue=9,
+            paternal_strand=paternal_strand,maternal_strand=maternal_strand) #maternal maternal
         runvalue, runstart, runlength = find_runs(matcr)
+        supportForBlock = np.array([np.sum(patcalls[s:s+e] == v) for s,e,v in zip(runstart, runlength, runvalue)])
+        supportForBlock_fraction = np.array([np.sum(patcalls[s:s+e] == v)/e for s,e,v in zip(runstart, runlength, runvalue)])
+        
         exactTransition = [True if i > 0 and runvalue[i-1] < 3 and x < 3 else False for i,x in enumerate(runvalue)]
-        starts = runstart[np.logical_or(runvalue == 3,exactTransition)]
+        xovers_i = np.where(np.logical_or(runvalue == 3,exactTransition))[0]
+        xovers_i = xovers_i[np.logical_and(xovers_i > 0, xovers_i < len(runvalue)-1)]
+        
+        starts = runstart[xovers_i]
         xoverlength = runlength
         xoverlength[exactTransition] = 0
-        lengths = xoverlength[np.logical_or(runvalue == 3,exactTransition)]
-        matcregion = (starts, lengths)
+        lengths = xoverlength[xovers_i]
+        before_length = supportForBlock[xovers_i-1]
+        after_length = supportForBlock[xovers_i+1]
+        before_fraction = supportForBlock_fraction[xovers_i-1]
+        after_fraction = supportForBlock_fraction[xovers_i+1]
         
+        if min_flank_support > 0:
+            qualify = np.bitwise_and(np.bitwise_and(after_length >= min_flank_support, before_length >= min_flank_support),
+                                     np.bitwise_and(before_fraction >= min_flank_support_fraction, after_fraction >= min_flank_support_fraction))
+            matcregion = (starts[qualify], lengths[qualify])
+        else:
+            matcregion = (starts, lengths)
         detectedCrossoverRegions[chrom] = {maternal_strand:matcregion, paternal_strand:patcregion}
     return(detectedCrossoverRegions)
 
