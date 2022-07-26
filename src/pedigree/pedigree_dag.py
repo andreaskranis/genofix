@@ -215,7 +215,7 @@ class PedigreeDAG(nx.DiGraph):
     
     @staticmethod
     def from_file(file:str):
-        pedigree = np.loadtxt(file, delimiter=' ', dtype=int)
+        pedigree = np.loadtxt(file, delimiter=' ', dtype=np.int64, usecols = (0,1,2,3))
         return(PedigreeDAG.from_table(pedigree))
     
     def get_parents_depth(self, kids:List[int], depth:int) -> Generator[int, None, None]:
