@@ -17,6 +17,8 @@ It defines classes_and_methods
 @deffield    updated: Updated
 '''
 
+from utils import pickle_util
+
 import sys
 import os
 import correct_genotypes2
@@ -36,7 +38,7 @@ from argparse import RawDescriptionHelpFormatter
 from empirical.jalleledist3 import JointAllellicDistribution
 
 from tqdm import tqdm
-from utils import pickle_util
+
 
 __all__ = []
 __version__ = 0.1
