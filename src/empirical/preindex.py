@@ -143,9 +143,10 @@ USAGE
     
     ###############
     
-    for chromosome in chromosome2snp.keys() :
-        if chromosome == -999:
+    for chromosome in sorted(chromosome2snp.keys()) :
+        if chromosome == "-999":
             continue
+        print("calculating chromosome %s" % chromosome)
         if genotypes_input_file.endswith(".gz") :
             genotypes = pd.read_csv(genotypes_input_file, sep=" ", compression='gzip', header=0, index_col=0, engine="c", dtype={snp:np.uint8 for snp in snps}, low_memory=False, memory_map=True)
         else :
