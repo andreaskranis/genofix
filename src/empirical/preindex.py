@@ -144,7 +144,7 @@ USAGE
     ###############
     
     for chromosome in sorted(chromosome2snp.keys()) :
-        if chromosome == "-999":
+        if (chromosome.isnumeric() and int(chromosome) < 1) or chromosome == "":
             continue
         print("calculating chromosome %s" % chromosome)
         if genotypes_input_file.endswith(".gz") :
@@ -209,6 +209,7 @@ USAGE
         #print("calc empirical ld on genotype with %s of %s (%6.2f pc) over under cuttoff 0 mendel errors" % (np.count_nonzero(mask), mask.size, (np.count_nonzero(mask)/mask.size)*100,))
         empC.countJointFrqAll(genotypes, mask)
         
+        pathlib.Path("%s/%s" % (out_dir, chromosome)).mkdir(parents=True, exist_ok=True)
         pickle_util.dumpToPickle("%s/%s/empiricalIndex.idx" % (out_dir, chromosome), empC)
         
     
