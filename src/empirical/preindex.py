@@ -141,6 +141,13 @@ USAGE
 
     print("%s blankets done " % len(blankets))
     
+    
+    candidatesForEval = list()
+    for kid in genotypes.index :
+        sire, dam = pedigree.get_parents(kid)
+        if sire in genotypes.index and dam in genotypes.index:
+            candidatesForEval.append(kid)
+                
     ###############
     
     for chromosome in sorted(chromosome2snp.keys()) :
@@ -151,11 +158,14 @@ USAGE
             genotypes = pd.read_csv(genotypes_input_file, sep=" ", compression='gzip', header=0, index_col=0, engine="c", dtype={snp:np.uint8 for snp in snps}, low_memory=False, memory_map=True)
         else :
             genotypes = pd.read_csv(genotypes_input_file, sep=" ", header=0, index_col=0, engine="c", dtype={snp:np.uint8 for snp in snps}, low_memory=False, memory_map=True)
-            genotypes = genotypes.loc[:,chromosome2snp[chromosome]]
-        
+        print("Loaded genotype matrix with %s individuals X %s snps " %genotypes.shape)
+        genotypes = genotypes.loc[candidatesForEval,chromosome2snp[chromosome]]
+        print("genotype matrix for eval is %s individuals X %s snps " %genotypes.shape)
         probs = {}
         probs_errors = pd.DataFrame(np.zeros(genotypes.shape), columns=genotypes.columns, index=genotypes.index)
         cache_store = {}
+        
+
         
         #populate_base_probs
         print("pre-calculate mendel probs on all individuals")
@@ -165,7 +175,7 @@ USAGE
             #for kid in tqdm(pedigree.males.union(pedigree.females)):
             #    x, b = self.mendelProbsSingle(corrected_genotype, pedigree, kid, back)
             #    print("kid %s done" % kid)
-            futures = {executor.submit(correct_genotypes2.CorrectGenotypes.mendelProbsSingle, kid, 2, elimination_order="MinNeighbors"):kid for kid in genotypes.index}
+            futures = {executor.submit(correct_genotypes2.CorrectGenotypes.mendelProbsSingle, kid, 2, elimination_order="MinNeighbors"):kid for kid in candidatesForEval}
             print("waiting on %s queued jobs with %s threads" % (len(futures), threads))
             with tqdm(total=len(futures)) as pbar:
                 for future in concurrent.futures.as_completed(futures) :
