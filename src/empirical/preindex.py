@@ -141,13 +141,6 @@ USAGE
 
     print("%s blankets done " % len(blankets))
     
-    
-    candidatesForEval = list()
-    for kid in genotypes.index :
-        sire, dam = pedigree.get_parents(kid)
-        if sire in genotypes.index and dam in genotypes.index:
-            candidatesForEval.append(kid)
-                
     ###############
     
     for chromosome in sorted(chromosome2snp.keys()) :
@@ -159,6 +152,14 @@ USAGE
         else :
             genotypes = pd.read_csv(genotypes_input_file, sep=" ", header=0, index_col=0, engine="c", dtype={snp:np.uint8 for snp in snps}, low_memory=False, memory_map=True)
         print("Loaded genotype matrix with %s individuals X %s snps " %genotypes.shape)
+        
+        
+        candidatesForEval = list()
+        for kid in genotypes.index :
+            sire, dam = pedigree.get_parents(kid)
+            if sire in genotypes.index and dam in genotypes.index:
+                candidatesForEval.append(kid)
+            
         genotypes = genotypes.loc[candidatesForEval,chromosome2snp[chromosome]]
         print("genotype matrix for eval is %s individuals X %s snps " %genotypes.shape)
         probs = {}
