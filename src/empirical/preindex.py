@@ -144,7 +144,7 @@ USAGE
     ###############
     
     for chromosome in sorted(chromosome2snp.keys()) :
-        if or chromosome == "" or chromosome == "-999" :
+        if chromosome == "" or chromosome == "-999" or chromosome == "-9" :
             continue
         print("calculating chromosome %s" % chromosome)
         if genotypes_input_file.endswith(".gz") :
