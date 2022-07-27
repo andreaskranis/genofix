@@ -21,7 +21,7 @@ import os, traceback
 import pathlib
 from visualize import Visualize
 import importphase
-from utils import *
+from gfutils import *
 import crossoverdetection
 
 import mgzip

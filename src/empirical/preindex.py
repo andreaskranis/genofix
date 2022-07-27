@@ -17,7 +17,7 @@ It defines classes_and_methods
 @deffield    updated: Updated
 '''
 
-from utils import pickle_util
+from gfutils import pickle_util
 
 import sys
 import os

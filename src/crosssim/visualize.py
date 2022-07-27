@@ -32,7 +32,7 @@ from matplotlib import rc
 import seaborn as sns
 import mgzip
 from itertools import chain
-import utils
+import gfutils
 
 rc('font',**{'family':'sans-serif','sans-serif':['DejaVu Sans'],'size':10})
 rc('mathtext',**{'default':'regular'})
@@ -94,7 +94,7 @@ def loadRegionsStats(file, crossactual_pat, crossactual_mat, threads=2):
                         sims = readPickle(file, threads=threads)
                         crossregion_pat = [sim[0] for sim in sims]
                         crossregion_mat = [sim[1] for sim in sims]
-                        statL = utils.Statistics()
+                        statL = gfutils.Statistics()
                         statL.addCrossoverStatistics(crossactual_pat, crossregion_pat)
                         statL.addCrossoverStatistics(crossactual_mat, crossregion_mat)
                         return(crossregion_pat, crossregion_mat, statL)
@@ -158,13 +158,13 @@ class Visualize(object):
                 pos = plt.imshow(lengthvspos_all.transpose(), 
                                      interpolation='none', cmap=plt.cm.get_cmap('winter').reversed(), origin='lower', aspect=2, norm=LogNorm())
                 plt.plot(range(0, len(smooth_all)),
-                         utils.scale_list(smooth_all,0,lengthvspos_all.shape[1],0, max(smooth_all)), color="blue", lw=0.5)
+                         gfutils.scale_list(smooth_all,0,lengthvspos_all.shape[1],0, max(smooth_all)), color="blue", lw=0.5)
                 plt.plot(range(0, len(smooth_less50)),
-                         utils.scale_list(smooth_less50,0,lengthvspos_all.shape[1],0, max(smooth_all)), color="blue", lw=0.5, linestyle='dashed')
+                         gfutils.scale_list(smooth_less50,0,lengthvspos_all.shape[1],0, max(smooth_all)), color="blue", lw=0.5, linestyle='dashed')
                 
                 secaxy = plt.gca().secondary_yaxis('right', 
-                                       functions=(lambda a: utils.scale_number(a,0,lengthvspos_all.shape[1], 0,max(smooth_all)), 
-                                                  lambda a: utils.scale_number(a,0,max(smooth_all),0,lengthvspos_all.shape[1])))
+                                       functions=(lambda a: gfutils.scale_number(a,0,lengthvspos_all.shape[1], 0,max(smooth_all)), 
+                                                  lambda a: gfutils.scale_number(a,0,max(smooth_all),0,lengthvspos_all.shape[1])))
                 secaxy.set_ylabel('Density (50 bp window)')
                 secaxy.set_color('blue')
 
@@ -221,8 +221,8 @@ class Visualize(object):
                             #print("done %s and %s left: memory usage %0.2f MB (%0.2f pc)" % (ni+1, len(jobs), process.memory_info().rss / 1024 ** 2, process.memory_percent()))
                 print("Save to pickle %s %s" % (pat_exactfile, mat_exactfile))
                 
-                utils.dumpToPickle(pat_exactfile, crossactual_pat_col)
-                utils.dumpToPickle(mat_exactfile, crossactual_mat_col)
+                gfutils.dumpToPickle(pat_exactfile, crossactual_pat_col)
+                gfutils.dumpToPickle(mat_exactfile, crossactual_mat_col)
                 #print("actual x-cross: loaded %s simulations" % len(actual))
             else :
                 print("Load from pickle %s %s" % (pat_exactfile, mat_exactfile))
@@ -245,8 +245,8 @@ class Visualize(object):
                     n_sims_mat_sum += n_sims_mat
                     crossprobs_pat_col = np.hstack([crossprobs_pat_col, crossprobs_pat.sum(axis=1).tolist()])
                     crossprobs_mat_col = np.hstack([crossprobs_mat_col, crossprobs_mat.sum(axis=1).tolist()])
-                utils.dumpToPickle(pat_probsfile, crossprobs_pat_col)
-                utils.dumpToPickle(mat_probsfile, crossprobs_mat_col)
+                gfutils.dumpToPickle(pat_probsfile, crossprobs_pat_col)
+                gfutils.dumpToPickle(mat_probsfile, crossprobs_mat_col)
             else :
                 print("Load from pickle %s %s" % (pat_probsfile, mat_probsfile))
                 crossprobs_pat_col = readPickle(pat_probsfile, threads=threads)
@@ -368,7 +368,7 @@ class Visualize(object):
                     print("loaded by pickle performance stats")
                 else :
                     performStats = True
-                    stats = utils.Statistics()
+                    stats = gfutils.Statistics()
                 
                 if performStats or recalcLenStats :
                     with ProcessPoolExecutor(max_workers=threads) as executor:
@@ -392,7 +392,7 @@ class Visualize(object):
                                 if len(lengthvspos_all) == 0:
                                     lengthvspos_all = lengthvspos
                                 else:
-                                    lengthvspos_all = utils.addPaddedArrays(lengthvspos_all,lengthvspos)
+                                    lengthvspos_all = gfutils.addPaddedArrays(lengthvspos_all,lengthvspos)
                             
                             if performStats :
                                 print("add crossover statistics for %s " % kid)
@@ -401,11 +401,11 @@ class Visualize(object):
                                 
                     if recalcLenStats :    
                         print("write pickle region length denstiy stats %s " % lengthvspos_all_file)
-                        utils.dumpToPickle(lengthvspos_all_file, lengthvspos_all, threads=3)
+                        gfutils.dumpToPickle(lengthvspos_all_file, lengthvspos_all, threads=3)
                         
                     if performStats :   
                         print("write pickle performance stats %s " % perfomstats_file)
-                        utils.dumpToPickle(perfomstats_file, stats, replace=True, threads=3)
+                        gfutils.dumpToPickle(perfomstats_file, stats, replace=True, threads=3)
                 
                 print("done length stats gen")
             
@@ -710,7 +710,7 @@ class Visualize(object):
                 #plt.hist2d(, ,)
                 print("plotting accuracy statistics")
 
-                stats = utils.Statistics()
+                stats = gfutils.Statistics()
                 #paternal stats
                 stats.addCrossoverStatistics(crossactual_pat_col, crossregion_pat_col)
                 stats.addCrossoverStatistics(crossactual_mat_col, crossregion_mat_col)
@@ -764,7 +764,7 @@ class Visualize(object):
                 lengthvspos = self.ambiguityHeatMatrix(crossprobs_pat.shape[0],
                              crossregion_pat_col,crossregion_mat_col)
                 
-                #utils.dumpToPickle('%s/sim_crossovers/plot_individuals/chr%s/%s.pickle' %  (out_dir,chromosome,kid), lengthvspos)
+                #gfutils.dumpToPickle('%s/sim_crossovers/plot_individuals/chr%s/%s.pickle' %  (out_dir,chromosome,kid), lengthvspos)
                 
                 fig =plt.figure(figsize=(16,9), dpi= 300, facecolor='w', edgecolor='k')
                 pos = plt.imshow(lengthvspos.astype(float).transpose(), #removed .toarray()

@@ -1,9 +1,9 @@
 #!/usr/local/bin/python3
 # encoding: utf-8
 '''
-utils.extract_founders -- find founders in pedigree
+gfutils.extract_founders -- find founders in pedigree
 
-utils.extract_founders is a simple utility for finding pedigree founders which allows user to add contraints on sequenced individuals
+gfutils.extract_founders is a simple utility for finding pedigree founders which allows user to add contraints on sequenced individuals
 
 It defines classes_and_methods
 
@@ -135,7 +135,7 @@ if __name__ == "__main__":
     if PROFILE:
         import cProfile
         import pstats
-        profile_filename = 'utils.extract_founders_profile.txt'
+        profile_filename = 'gfutils.extract_founders_profile.txt'
         cProfile.run('main()', profile_filename)
         statsfile = open("profile_stats.txt", "wb")
         p = pstats.Stats(profile_filename, stream=statsfile)
