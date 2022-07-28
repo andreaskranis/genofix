@@ -171,7 +171,7 @@ USAGE
                 candidatesForEval.append(kid)
             
         genotypes = genotypes.loc[candidatesForEval,chromosome2snp[chromosome]]
-        print("genotype matrix for eval is %s individuals X %s snps " %genotypes.shape)
+        print("genotype matrix for eval is %s individuals X %s snps after only trio candidates retained" %genotypes.shape)
         probs = {}
         probs_errors = pd.DataFrame(np.zeros(genotypes.shape), columns=genotypes.columns, index=genotypes.index)
         cache_store = {}
@@ -216,7 +216,7 @@ USAGE
         
         distribution_of_ranks = probs_errors.to_numpy().flatten()
         
-        if quant95_t != None :
+        if quant95_t is None :
             print("calculating quantiles")
             quantQ_L = np.nanquantile(distribution_of_ranks, [init_filter_p], method='linear')
             quant95_t, quant99_t, quantQ = np.nanquantile(distribution_of_ranks, [0.95,0.99, init_filter_p], method='interpolated_inverted_cdf')
