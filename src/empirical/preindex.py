@@ -136,6 +136,8 @@ USAGE
     
     quant95_t, quant99_t, quantQ = None,None,None
     maxsumprobs = 0
+    candidatesForEval = None # defined on first pass of largest chromosome as individuals in lower 90% quantile of error
+    filteredIndividualsQuant = False # have we done a filter yet
     
     for chromosome in sorted(chromosome2snp.keys()) :
         if chromosome == "" or chromosome == "-999" or chromosome == "-9" :
@@ -150,14 +152,15 @@ USAGE
         else :
             genotypes = pd.read_csv(genotypes_input_file, usecols=filtercolumns,
                                      sep=" ", header=0, index_col=0, engine="c", dtype=datatypes, low_memory=False, memory_map=True)
-        print("Loaded genotype matrix with %s individuals X %s snps " %genotypes.shape)
+        print("Loaded genotype matrix with %s individuals X %s snps " % genotypes.shape)
         
-        candidatesForEval = list()
-        for kid in genotypes.index :
-            sire, dam = pedigree.get_parents(kid)
-            if sire in genotypes.index and dam in genotypes.index:
-                candidatesForEval.append(kid)
-            
+        if candidatesForEval is None:
+            candidatesForEval = list()
+            for kid in genotypes.index :
+                sire, dam = pedigree.get_parents(kid)
+                if sire in genotypes.index and dam in genotypes.index:
+                    candidatesForEval.append(kid)
+        
         genotypes = genotypes.loc[candidatesForEval,chromosome2snp[chromosome]]
         print("genotype matrix for eval is %s individuals X %s snps after only trio candidates retained" %genotypes.shape)
         probs_errors = pd.DataFrame(np.zeros(genotypes.shape, dtype=np.float16), columns=genotypes.columns, index=genotypes.index)
@@ -209,6 +212,13 @@ USAGE
         plt.savefig("%s/%s/individuals_dist_histogram_preld_based_on_chromosome_%s.png" % (out_dir, chromosome, chromosome), dpi=300)
         plt.clf()
         
+        if filteredIndividualsQuant:
+            candidatesForEval = genotypes.index[individualSumProbs < quantQ_chromosome_individual] 
+            filteredIndividualsQuant = True
+        
+        probs_errors = probs_errors[candidatesForEval,:]
+        genotypes = genotypes[candidatesForEval,:]
+        
         distribution_of_ranks = probs_errors.to_numpy().flatten()
         
         if quant95_t is None :
@@ -232,8 +242,6 @@ USAGE
         
         print("initial P of errors calculated with 95pc-quantile = %s, 99pc-quantile = %s, and cuttoff %s-quantile = %s" % (quant95_t, quant99_t, init_filter_p, quantQ))
         
-
-        
         print("calculating LDDist ")
         empC = JointAllellicDistribution(list(genotypes.columns),
                                         surround_size=surroundsnps,
@@ -250,7 +258,7 @@ USAGE
         empC.countJointFrqAll(genotypes, mask)
         
         pathlib.Path("%s/%s" % (out_dir, chromosome)).mkdir(parents=True, exist_ok=True)
-        pickle_util.dumpToPickle("%s/%s/empiricalIndex.idx" % (out_dir, chromosome), empC)
+        pickle_util.dumpToPickle("%s/%s/empiricalIndex.idx.gz" % (out_dir, chromosome), empC)
         
     
 if __name__ == "__main__":
