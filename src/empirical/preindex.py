@@ -143,7 +143,7 @@ USAGE
         snpsToImport = chromosome2snp[chromosome]
         filtercolumns = ["id"]+snpsToImport
         print("calculating chromosome %s: importing %s snps" % (chromosome, len(snpsToImport)))
-        datatypes = {snp:np.uint8 for snp in snps} | {"id":np.int64}
+        datatypes = {snp:np.uint8 for snp in snps} | {"id":np.uint64}
         if genotypes_input_file.endswith(".gz") :
             genotypes = pd.read_csv(genotypes_input_file, usecols=filtercolumns,
                                     sep=" ", compression='gzip', header=0, index_col=0, engine="c", dtype=datatypes, low_memory=False, memory_map=True)
@@ -160,7 +160,7 @@ USAGE
             
         genotypes = genotypes.loc[candidatesForEval,chromosome2snp[chromosome]]
         print("genotype matrix for eval is %s individuals X %s snps after only trio candidates retained" %genotypes.shape)
-        probs_errors = pd.DataFrame(np.zeros(genotypes.shape), columns=genotypes.columns, index=genotypes.index)
+        probs_errors = pd.DataFrame(np.zeros(genotypes.shape, dtype=np.float16), columns=genotypes.columns, index=genotypes.index)
         
         #populate_base_probs
         print("pre-calculate mendel probs on all individuals")
@@ -181,7 +181,7 @@ USAGE
                         print(repr(e))
                         raise(e)
                     __, probsErrors, __ = future.result()
-                    probs_errors.loc[kid,:] = np.squeeze(probsErrors)
+                    probs_errors.loc[kid,:] = np.squeeze(probsErrors).astype(np.float16) # 
                     #blanket of partners parents and kids
                     del futures[future]
                     del future

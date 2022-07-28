@@ -75,8 +75,8 @@ class CorrectGenotypes(object):
             blanket = pedigree.get_subset(list(blanketnodes), balance_parents = True)
             model = BayesPedigreeNetworkModel.generateModel(blanket,_default_alleleprobs, _default_mendelprobs)
         
-        result = np.empty((len(genotypes.columns),3), np.single)
-        result_errors = np.empty((len(genotypes.columns),1), np.single)
+        result = np.zeros((len(genotypes.columns),3), dtype=np.float16)
+        result_errors = np.ones((len(genotypes.columns),1), dtype=np.float16)
         children = np.array(list(pedigree.get_kids(kid)))
         
         allindiv = set(children)
@@ -95,7 +95,7 @@ class CorrectGenotypes(object):
                 if key not in cache:
                     infer = VariableElimination(model.copy())
                     prediction = infer.query([str(kid)], evidence=evidence, show_progress=False, joint=False, elimination_order=elimination_order)
-                    anc_probs = np.array(prediction[str(kid)].values)
+                    anc_probs = np.array(prediction[str(kid)].values, dtype=np.float16)
                     cache[key] = anc_probs
                 else:
                     anc_probs = cache[key]
@@ -125,19 +125,19 @@ class CorrectGenotypes(object):
             
             if observed in [0,1,2] :
                 if anc_error is not None and prob_error is not None:
-                    result_errors[j] = np.sum(prob_error) + (anc_error*2)
+                    result_errors[j] = np.sum(prob_error, dtype=np.float16) + np.multiply(anc_error,2, dtype=np.float16)
                 elif anc_error is not None and prob_error is None:
-                    result_errors[j] = anc_error*2
+                    result_errors[j] = np.multiply(anc_error,2, dtype=np.float16)
                 elif anc_error is None and prob_error is not None:
-                    result_errors[j] = np.sum(prob_error)
+                    result_errors[j] = np.sum(prob_error, dtype=np.float16)
             
             if anc_probs is not None and probs is not None:
                 #result[j] = np.nanmean([anc_probs,probs],0, dtype=float)
-                result[j] = np.multiply(anc_probs,probs)
+                result[j] = np.multiply(anc_probs,probs, dtype=np.float16)
             elif anc_probs is not None and probs is None:
-                result[j] = anc_probs
+                result[j] = np.array(anc_probs, dtype=np.float16)
             elif anc_probs is None and probs is not None:
-                result[j] = probs
+                result[j] = np.array(probs, dtype=np.float16)
             else :
                 print("WARN: %s is an illegal lone node in the pedigree graph" % kid)
         return(result, result_errors, cache)
@@ -283,7 +283,7 @@ class CorrectGenotypes(object):
                 observed_prob_sire = stateProbs_sire[observed_state_sire] if observed_state_sire != 9 else np.nan #nan differentiates unknown state from a state with prob zero
                 observed_prob_dam = stateProbs_dam[observed_state_dam] if observed_state_dam != 9 else np.nan
                 
-                #stateProbs_joint = np.empty((3,3), dtype=float)
+                #stateProbs_joint = np.ones((3,3), dtype=float)
                 #for sire_state,dam_state in accumulateCombinations([0,1,2],2):
                 #    stateProbs_joint[sire_state,dam_state] = stateProbs_sire[sire_state]*stateProbs_dam[dam_state]
                 stateProbs_joint = np.outer(stateProbs_sire,stateProbs_dam)
