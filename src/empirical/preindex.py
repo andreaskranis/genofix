@@ -39,6 +39,8 @@ from empirical.jalleledist3 import JointAllellicDistribution
 
 from tqdm import tqdm
 
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 __all__ = []
 __version__ = 0.1
@@ -94,8 +96,7 @@ USAGE
     parser.add_argument("-s", "--snps", dest="snps", required=True, help="snp map file")
     parser.add_argument("-T", "--threads", dest="threads", type=int, required=False, default=multiprocessing.cpu_count(),  help="weight of empirical vs collected medelian error when ranking snps by error probability")
     parser.add_argument("-q", "--initquantilefilter", dest="initquantilefilter", type=float, required=False, default=0.9,  help="initial filter to select upper quantile in error likelihood dist")
-    parser.add_argument("-Q", "--filter_e", dest="filter_e", type=float, required=False, default=0.8,  help="filter to select upper quantile to exclude from empirical ld calculation")
-        
+    
     # Process arguments
     args = parser.parse_args()
     
@@ -142,6 +143,8 @@ USAGE
     print("%s blankets done " % len(blankets))
     
     ###############
+    
+    quant95_t, quant99_t, quantQ = None,None,None
     
     for chromosome in sorted(chromosome2snp.keys()) :
         if chromosome == "" or chromosome == "-999" or chromosome == "-9" :
@@ -207,15 +210,27 @@ USAGE
         
         distribution_of_ranks = probs_errors.to_numpy().flatten()
         
-        quant95_t, quant99_t, quantE_t, quantP_t = np.quantile(distribution_of_ranks, [0.95,0.99, filter_e, init_filter_p], interpolation='higher')
+        if quant95_t != None :
+            quantQ_L = np.nanquantile(distribution_of_ranks, [init_filter_p], method='linear')
+            quant95_t, quant99_t, quantQ = np.nanquantile(distribution_of_ranks, [0.95,0.99, init_filter_p], method='interpolated_inverted_cdf')
+            ax = sns.distplot(distribution_of_ranks)
+            ax.set(xlabel='sum difference in observed vs expected', ylabel='count')
+            plt.axvline(quant95_t, 0,1, color="blue", alpha=0.5, linestyle="--")
+            plt.axvline(quant99_t, 0,1, color="red", alpha=0.5, linestyle="--")
+            plt.axvline(quantQ, 0,1, color="black")
+            plt.axvline(quantQ_L, 0,1, color="yellow")
+            plt.savefig("%s/distribution_of_sum_error_ranks_histogram_preld_based_on_chromosome_%s.png" % (out_dir, chromosome), dpi=300)
+            plt.clf()
+        
+        print("initial P of errors calculated with 95%q = %s, 99q = %s, and cuttoff %sq = %s" % (quant95_t, quant99_t, init_filter_p, quantQ))
         
         print("calculating LDDist ")
         empC = JointAllellicDistribution(list(genotypes.columns),
                                         surround_size=surroundsnps,
                                         chromosome2snp=chromosome2snp)
         print("create mask")
-        mask = np.array(probs_errors.to_numpy() <= quantE_t, dtype=bool)
-        print("calc empirical ld on genotype with %s of %s (%6.2f pc) over under cuttoff %6.6f mendel errors after removing > %s quantile of mendel errors" % (np.count_nonzero(mask), mask.size, (np.count_nonzero(mask)/mask.size)*100,quantE_t, filter_e))
+        mask = np.array(probs_errors.to_numpy() <= quantQ, dtype=bool)
+        print("calc empirical ld on genotype with %s of %s (%6.2f pc) over under cuttoff %6.6f mendel errors after removing > %s quantile of mendel errors" % (np.count_nonzero(mask), mask.size, (np.count_nonzero(mask)/mask.size)*100, filter_e, quantQ))
         #print("calc empirical ld on genotype with %s of %s (%6.2f pc) over under cuttoff 0 mendel errors" % (np.count_nonzero(mask), mask.size, (np.count_nonzero(mask)/mask.size)*100,))
         empC.countJointFrqAll(genotypes, mask)
         
