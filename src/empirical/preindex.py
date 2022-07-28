@@ -105,7 +105,6 @@ USAGE
     pathlib.Path(out_dir).mkdir(parents=True, exist_ok=True)
 
     init_filter_p=args.initquantilefilter
-    filter_e=args.filter_e
     
     threads= args.threads
 
