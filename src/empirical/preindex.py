@@ -232,6 +232,8 @@ USAGE
         
         print("initial P of errors calculated with 95pc-quantile = %s, 99pc-quantile = %s, and cuttoff %s-quantile = %s" % (quant95_t, quant99_t, init_filter_p, quantQ))
         
+
+        
         print("calculating LDDist ")
         empC = JointAllellicDistribution(list(genotypes.columns),
                                         surround_size=surroundsnps,
@@ -240,6 +242,10 @@ USAGE
         mask = np.array(probs_errors.to_numpy() <= quantQ, dtype=bool)
         print("calc empirical ld on genotype with %s of %s (%6.2f pc) under cuttoff %6.6f mendel errors after removing > %s quantile of mendel errors" % 
               (np.count_nonzero(mask), mask.size, (np.count_nonzero(mask)/mask.size)*100,quantQ, init_filter_p))
+        
+        #clear up memory before empirical count
+        del probs_errors
+        del distribution_of_ranks
         
         empC.countJointFrqAll(genotypes, mask)
         
