@@ -218,16 +218,22 @@ USAGE
         
         if quant95_t is None :
             print("calculating quantiles")
-            quantQ_L = np.nanquantile(distribution_of_ranks, [init_filter_p], method='linear')
             quant95_t, quant99_t, quantQ = np.nanquantile(distribution_of_ranks, [0.95,0.99, init_filter_p], method='interpolated_inverted_cdf')
             ax = sns.distplot(distribution_of_ranks)
             ax.set(xlabel='sum difference in observed vs expected', ylabel='count')
             plt.axvline(quant95_t, 0,1, color="blue", alpha=0.5, linestyle="--")
             plt.axvline(quant99_t, 0,1, color="red", alpha=0.5, linestyle="--")
             plt.axvline(quantQ, 0,1, color="black")
-            plt.axvline(quantQ_L, 0,1, color="yellow")
             plt.savefig("%s/distribution_of_sum_error_ranks_histogram_preld_based_on_chromosome_%s.png" % (out_dir, chromosome), dpi=300)
             plt.clf()
+            
+        quantQ_chromosome = np.nanquantile(distribution_of_ranks, [init_filter_p], method='interpolated_inverted_cdf')
+        ax = sns.distplot(distribution_of_ranks)
+        ax.set(xlabel='sum difference in observed vs expected', ylabel='count')
+        plt.axvline(quantQ_chromosome, 0,1, color="black")
+        plt.axvline(quantQ, 0,1, color="cyan")
+        plt.savefig("%s/%s/distribution_of_sum_error_ranks_histogram_preld_based_on_chromosome_%s.png" % (out_dir, chromosome, chromosome), dpi=300)
+        plt.clf()
         
         print("initial P of errors calculated with 95pc-quantile = %s, 99pc-quantile = %s, and cuttoff %s-quantile = %s" % (quant95_t, quant99_t, init_filter_p, quantQ))
         
@@ -237,9 +243,9 @@ USAGE
                                         chromosome2snp=chromosome2snp)
         print("create mask")
         mask = np.array(probs_errors.to_numpy() <= quantQ, dtype=bool)
-        print("calc empirical ld on genotype with %s of %s (%6.2f pc) over under cuttoff %6.6f mendel errors after removing > %s quantile of mendel errors" % 
+        print("calc empirical ld on genotype with %s of %s (%6.2f pc) under cuttoff %6.6f mendel errors after removing > %s quantile of mendel errors" % 
               (np.count_nonzero(mask), mask.size, (np.count_nonzero(mask)/mask.size)*100,quantQ, init_filter_p))
-        #print("calc empirical ld on genotype with %s of %s (%6.2f pc) over under cuttoff 0 mendel errors" % (np.count_nonzero(mask), mask.size, (np.count_nonzero(mask)/mask.size)*100,))
+        
         empC.countJointFrqAll(genotypes, mask)
         
         pathlib.Path("%s/%s" % (out_dir, chromosome)).mkdir(parents=True, exist_ok=True)
