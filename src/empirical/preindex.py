@@ -185,6 +185,7 @@ USAGE
                     #blanket of partners parents and kids
                     del futures[future]
                     del future
+                    del __
             print("mendel precalc done")
         
         #minnonzeroprobs = np.min(maxsumprobs)
