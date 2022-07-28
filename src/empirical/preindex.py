@@ -159,10 +159,10 @@ USAGE
         datatypes = {snp:np.uint8 for snp in snps} | {"id":np.int64}
         if genotypes_input_file.endswith(".gz") :
             genotypes = pd.read_csv(genotypes_input_file, usecols=filtercolumns,
-                                    sep=" ", compression='gzip', header=0, index_col=0, engine="pyarrow", dtype=datatypes, memory_map=True)
+                                    sep=" ", compression='gzip', header=0, index_col=0, engine="pyarrow", dtype=datatypes)
         else :
             genotypes = pd.read_csv(genotypes_input_file, usecols=filtercolumns,
-                                     sep=" ", header=0, index_col=0, engine="pyarrow", dtype=datatypes, memory_map=True)
+                                     sep=" ", header=0, index_col=0, engine="pyarrow", dtype=datatypes)
         print("Loaded genotype matrix with %s individuals X %s snps " %genotypes.shape)
         
         candidatesForEval = list()
