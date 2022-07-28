@@ -114,7 +114,7 @@ USAGE
 
     pedigree = PedigreeDAG.from_file(args.pedigree)
     genomein = pd.read_csv(args.snps, sep=',', names = ["snpid", "chrom","pos", "topAllele","B"], skiprows=1, engine='c',low_memory=False, memory_map=True)
-    genomein = genomein.sort_values(by=["chrom", "pos"], ascending=False)
+    genomein = genomein.sort_values(by=["chrom", "pos"], ascending=[True, True])
     print(genomein)
     
     snps = [row["snpid"] for _index, row in genomein.iterrows()]#
@@ -228,7 +228,7 @@ USAGE
             plt.savefig("%s/distribution_of_sum_error_ranks_histogram_preld_based_on_chromosome_%s.png" % (out_dir, chromosome), dpi=300)
             plt.clf()
         
-        print("initial P of errors calculated with 95%q = %s, 99q = %s, and cuttoff %sq = %s" % (quant95_t, quant99_t, init_filter_p, quantQ))
+        print("initial P of errors calculated with 95pc-quantile = %s, 99pc-quantile = %s, and cuttoff %s-quantile = %s" % (quant95_t, quant99_t, init_filter_p, quantQ))
         
         print("calculating LDDist ")
         empC = JointAllellicDistribution(list(genotypes.columns),
