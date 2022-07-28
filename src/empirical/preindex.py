@@ -145,6 +145,7 @@ USAGE
     ###############
     
     quant95_t, quant99_t, quantQ = None,None,None
+    maxsumprobs = 0
     
     for chromosome in sorted(chromosome2snp.keys()) :
         if chromosome == "" or chromosome == "-999" or chromosome == "-9" :
@@ -196,7 +197,7 @@ USAGE
             print("mendel precalc done")
         
         #minnonzeroprobs = np.min(maxsumprobs)
-        maxsumprobs = np.nanmax(probs_errors)
+        maxsumprobs = np.nanmax((maxsumprobs, np.nanmax(probs_errors)))
         print("maximum ranking for error = %s" % maxsumprobs)
         
         #maxsumprobs = np.nanmax(list(np.concatenate(list(probs_errors.values()))))
