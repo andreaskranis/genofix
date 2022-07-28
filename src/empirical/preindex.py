@@ -230,7 +230,8 @@ USAGE
                                         chromosome2snp=chromosome2snp)
         print("create mask")
         mask = np.array(probs_errors.to_numpy() <= quantQ, dtype=bool)
-        print("calc empirical ld on genotype with %s of %s (%6.2f pc) over under cuttoff %6.6f mendel errors after removing > %s quantile of mendel errors" % (np.count_nonzero(mask), mask.size, (np.count_nonzero(mask)/mask.size)*100, filter_e, quantQ))
+        print("calc empirical ld on genotype with %s of %s (%6.2f pc) over under cuttoff %6.6f mendel errors after removing > %s quantile of mendel errors" % 
+              (np.count_nonzero(mask), mask.size, (np.count_nonzero(mask)/mask.size)*100,quantQ, init_filter_p))
         #print("calc empirical ld on genotype with %s of %s (%6.2f pc) over under cuttoff 0 mendel errors" % (np.count_nonzero(mask), mask.size, (np.count_nonzero(mask)/mask.size)*100,))
         empC.countJointFrqAll(genotypes, mask)
         
