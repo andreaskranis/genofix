@@ -114,19 +114,23 @@ USAGE
 
     pedigree = PedigreeDAG.from_file(args.pedigree)
     genomein = pd.read_csv(args.snps, sep=',', names = ["snpid", "chrom","pos", "topAllele","B"], skiprows=1, engine='c',low_memory=False, memory_map=True)
+    genomein = genomein.sort_values(by=["chrom", "pos"], ascending=False)
+    print(genomein)
     
     snps = [row["snpid"] for _index, row in genomein.iterrows()]#
-    chromosome2snp = defaultdict(set)
-    chromosomes = set([row["chrom"] for _index, row in genomein.iterrows()])
+    chromosome2snp = defaultdict(list)
+    #chromosomes = set([row["chrom"] for _index, row in genomein.iterrows()])
     chromosomesnps = {}
     for _index, row in genomein.iterrows():
         if row["chrom"] not in chromosomesnps:
             chromosomesnps[row["chrom"]] = 1
         else:
             chromosomesnps[row["chrom"]]+=1
-        chromosome2snp[row["chrom"]].add(row["snpid"])
+        if row["snpid"] not in chromosome2snp[row["chrom"]] :
+            chromosome2snp[row["chrom"]].append(row["snpid"])
+        else :
+            raise Exception("Error in map file %s appears multiple times in chromosome %s " % (row["snpid"],row["chrom"]))
     print("%s" % [x for x in map(str,chromosome2snp.keys())] )
-
     
     ###################
     #calculate blankets for mendel errors
@@ -149,11 +153,15 @@ USAGE
     for chromosome in sorted(chromosome2snp.keys()) :
         if chromosome == "" or chromosome == "-999" or chromosome == "-9" :
             continue
-        print("calculating chromosome %s" % chromosome)
+        snpsToImport = chromosome2snp[chromosome]
+        filtercolumns = ["id"]+snpsToImport
+        print("calculating chromosome %s: importing %s snps" % (chromosome, len(snpsToImport)))
         if genotypes_input_file.endswith(".gz") :
-            genotypes = pd.read_csv(genotypes_input_file, sep=" ", compression='gzip', header=0, index_col=0, engine="c", dtype={snp:np.uint8 for snp in snps}, low_memory=False, memory_map=True)
+            genotypes = pd.read_csv(genotypes_input_file, usecols=filtercolumns,
+                                    sep=" ", compression='gzip', header=0, index_col=0, engine="c", dtype={snp:np.uint8 for snp in snps}, low_memory=False, memory_map=True)
         else :
-            genotypes = pd.read_csv(genotypes_input_file, sep=" ", header=0, index_col=0, engine="c", dtype={snp:np.uint8 for snp in snps}, low_memory=False, memory_map=True)
+            genotypes = pd.read_csv(genotypes_input_file, usecols=filtercolumns,
+                                     sep=" ", header=0, index_col=0, engine="c", dtype={snp:np.uint8 for snp in snps}, low_memory=False, memory_map=True)
         print("Loaded genotype matrix with %s individuals X %s snps " %genotypes.shape)
         
         candidatesForEval = list()
@@ -167,8 +175,6 @@ USAGE
         probs = {}
         probs_errors = pd.DataFrame(np.zeros(genotypes.shape), columns=genotypes.columns, index=genotypes.index)
         cache_store = {}
-        
-
         
         #populate_base_probs
         print("pre-calculate mendel probs on all individuals")
