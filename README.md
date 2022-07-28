@@ -11,9 +11,10 @@ Using empirical and Bayesian probabilistic models of Mendelian inheritance to fi
 * [numpy 1.21](https://numpy.org/) `pip3 install numpy`
 * [tqdm 4.62.3](https://github.com/tqdm/tqdm) `pip3 install tqdm`
 * [cloudpickle 2.0.0](https://github.com/cloudpipe/cloudpickle) `pip3 install cloudpickle`
-* mgzip
-* psutil
-* sortedcontainers
+* [pyarrow 8.0.0]() `pip3 install pyarrow`
+* mgzip `pip3 install mgzip`
+* psutil `pip3 install psutil`
+* sortedcontainers `pip3 install sortedcontainers`
 
 or with conda...
 
