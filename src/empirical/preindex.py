@@ -183,6 +183,7 @@ USAGE
                     __, probsErrors, __ = future.result()
                     probs_errors.loc[kid,:] = np.squeeze(probsErrors).astype(np.float16) # 
                     #blanket of partners parents and kids
+                    del probsErrors
                     del futures[future]
                     del future
                     del __
