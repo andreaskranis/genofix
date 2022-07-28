@@ -217,6 +217,7 @@ USAGE
         distribution_of_ranks = probs_errors.to_numpy().flatten()
         
         if quant95_t != None :
+            print("calculating quantiles")
             quantQ_L = np.nanquantile(distribution_of_ranks, [init_filter_p], method='linear')
             quant95_t, quant99_t, quantQ = np.nanquantile(distribution_of_ranks, [0.95,0.99, init_filter_p], method='interpolated_inverted_cdf')
             ax = sns.distplot(distribution_of_ranks)
