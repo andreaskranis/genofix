@@ -132,19 +132,6 @@ USAGE
             raise Exception("Error in map file %s appears multiple times in chromosome %s " % (row["snpid"],row["chrom"]))
     print("%s" % [x for x in map(str,chromosome2snp.keys())] )
     
-    ###################
-    #calculate blankets for mendel errors
-    ####################
-    blankets = {}
-    for kid in pedigree.males.union(pedigree.females):
-        blanket = set() #pedigree.get_kids(kid) #pedigree.get_kids(kid)
-        #blanket.update(pedigree.get_partners(kid))
-        blanket.update([x for x in pedigree.get_parents(kid) if x is not None])
-        blanket.discard(kid)
-        blankets[kid] = blanket
-
-    print("%s blankets done " % len(blankets))
-    
     ###############
     
     quant95_t, quant99_t, quantQ = None,None,None
@@ -173,9 +160,7 @@ USAGE
             
         genotypes = genotypes.loc[candidatesForEval,chromosome2snp[chromosome]]
         print("genotype matrix for eval is %s individuals X %s snps after only trio candidates retained" %genotypes.shape)
-        probs = {}
         probs_errors = pd.DataFrame(np.zeros(genotypes.shape), columns=genotypes.columns, index=genotypes.index)
-        cache_store = {}
         
         #populate_base_probs
         print("pre-calculate mendel probs on all individuals")
@@ -195,7 +180,7 @@ USAGE
                     if e is not None:
                         print(repr(e))
                         raise(e)
-                    probs[kid], probsErrors, cache_store[kid] = future.result()
+                    __, probsErrors, __ = future.result()
                     probs_errors.loc[kid,:] = np.squeeze(probsErrors)
                     #blanket of partners parents and kids
                     del futures[future]
@@ -206,14 +191,21 @@ USAGE
         maxsumprobs = np.nanmax((maxsumprobs, np.nanmax(probs_errors)))
         print("maximum ranking for error = %s" % maxsumprobs)
         
-        #maxsumprobs = np.nanmax(list(np.concatenate(list(probs_errors.values()))))
-        #for kid,snprobs in probs_errors.items():
-        #    probs_errors[kid] = np.divide(snprobs,maxsumprobs)
-        
         probs_errors = np.log(np.log(probs_errors+1)+1)
         maxsumprobs = np.nanmax(probs_errors)
         probs_errors = probs_errors/np.nanmax(maxsumprobs)
         probs_errors[genotypes == 9] = 1
+        probs_errors[genotypes == -9] = 1
+        
+        individualSumProbs = probs_errors.sum(axis=1).to_numpy()
+        individualSumProbs = individualSumProbs/np.nanmax(individualSumProbs)
+        
+        quantQ_chromosome_individual = np.nanquantile(individualSumProbs, [init_filter_p], method='interpolated_inverted_cdf')
+        ax = sns.distplot(individualSumProbs)
+        ax.set(xlabel='sum difference in observed vs expected', ylabel='count')
+        plt.axvline(quantQ_chromosome_individual, 0,1, color="black")
+        plt.savefig("%s/%s/individuals_dist_histogram_preld_based_on_chromosome_%s.png" % (out_dir, chromosome, chromosome), dpi=300)
+        plt.clf()
         
         distribution_of_ranks = probs_errors.to_numpy().flatten()
         
