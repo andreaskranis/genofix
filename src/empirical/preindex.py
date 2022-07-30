@@ -221,6 +221,8 @@ USAGE
         
         distribution_of_ranks = probs_errors.to_numpy().flatten()
         
+        pathlib.Path("%s/%s" % (out_dir, chromosome)).mkdir(parents=True, exist_ok=True)
+        
         if quant95_t is None :
             print("calculating quantiles")
             quant95_t, quant99_t, quantQ = np.nanquantile(distribution_of_ranks, [0.95,0.99, init_filter_p], method='interpolated_inverted_cdf')
@@ -257,7 +259,6 @@ USAGE
         
         empC.countJointFrqAll(genotypes, mask)
         
-        pathlib.Path("%s/%s" % (out_dir, chromosome)).mkdir(parents=True, exist_ok=True)
         pickle_util.dumpToPickle("%s/%s/empiricalIndex.idx.gz" % (out_dir, chromosome), empC)
         
     
