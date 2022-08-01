@@ -231,6 +231,9 @@ USAGE
             plt.axvline(quant95_t, 0,1, color="blue", alpha=0.5, linestyle="--")
             plt.axvline(quant99_t, 0,1, color="red", alpha=0.5, linestyle="--")
             plt.axvline(quantQ, 0,1, color="black")
+            file = "%s/distribution_of_sum_error_ranks_histogram_preld_based_on_chromosome_%s.png" % (out_dir, chromosome)
+            print("save as %s" % file)
+            pathlib.Path(file).mkdir(parents=True, exist_ok=True)
             plt.savefig("%s/distribution_of_sum_error_ranks_histogram_preld_based_on_chromosome_%s.png" % (out_dir, chromosome), dpi=300)
             plt.clf()
             
@@ -239,7 +242,10 @@ USAGE
         ax.set(xlabel='sum difference in observed vs expected', ylabel='count')
         plt.axvline(quantQ_chromosome, 0,1, color="black")
         plt.axvline(quantQ, 0,1, color="cyan")
-        plt.savefig("%s/%s/distribution_of_sum_error_ranks_histogram_preld_based_on_chromosome_%s.png" % (out_dir, chromosome, chromosome), dpi=300)
+        file = "%s/%s/distribution_of_sum_error_ranks_histogram_preld_based_on_chromosome_%s.png" % (out_dir, chromosome, chromosome)
+        print("save as %s" % file)
+        pathlib.Path(file).mkdir(parents=True, exist_ok=True)
+        plt.savefig(file, dpi=300)
         plt.clf()
         
         print("initial P of errors calculated with 95pc-quantile = %s, 99pc-quantile = %s, and cuttoff %s-quantile = %s" % (quant95_t, quant99_t, init_filter_p, quantQ))
