@@ -236,7 +236,6 @@ USAGE
             plt.axvline(quantQ, 0,1, color="black")
             file = "%s/distribution_of_sum_error_ranks_histogram_preld_based_on_chromosome_%s.png" % (out_dir, chromosome)
             print("save as %s" % file)
-            pathlib.Path(file).mkdir(parents=True, exist_ok=True)
             plt.savefig("%s/distribution_of_sum_error_ranks_histogram_preld_based_on_chromosome_%s.png" % (out_dir, chromosome), dpi=300)
             plt.clf()
         
@@ -247,7 +246,6 @@ USAGE
         plt.axvline(quantQ, 0,1, color="cyan")
         file = "%s/%s/distribution_of_sum_error_ranks_histogram_preld_based_on_chromosome_%s.png" % (out_dir, chromosome, chromosome)
         print("save as %s" % file)
-        pathlib.Path(file).mkdir(parents=True, exist_ok=True)
         plt.savefig(file, dpi=300)
         plt.clf()
         
