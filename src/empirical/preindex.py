@@ -208,6 +208,8 @@ USAGE
         individualSumProbs = probs_errors.sum(axis=1).to_numpy()
         individualSumProbs = individualSumProbs/np.nanmax(individualSumProbs)
         
+        pathlib.Path("%s/%s" % (out_dir, chromosome)).mkdir(parents=True, exist_ok=True)
+        
         quantQ_chromosome_individual = np.nanquantile(individualSumProbs, [init_filter_p], method='interpolated_inverted_cdf')
         ax = sns.distplot(individualSumProbs)
         ax.set(xlabel='sum difference in observed vs expected', ylabel='count')
@@ -219,12 +221,10 @@ USAGE
             candidatesForEval = genotypes.index[individualSumProbs < quantQ_chromosome_individual] 
             filteredIndividualsQuant = True
         
-        probs_errors = probs_errors[candidatesForEval,:]
-        genotypes = genotypes[candidatesForEval,:]
+        probs_errors = probs_errors.loc[candidatesForEval,:]
+        genotypes = genotypes.loc[candidatesForEval,:]
         
         distribution_of_ranks = probs_errors.to_numpy().flatten()
-        
-        pathlib.Path("%s/%s" % (out_dir, chromosome)).mkdir(parents=True, exist_ok=True)
         
         if quant95_t is None :
             print("calculating quantiles")
@@ -239,7 +239,7 @@ USAGE
             pathlib.Path(file).mkdir(parents=True, exist_ok=True)
             plt.savefig("%s/distribution_of_sum_error_ranks_histogram_preld_based_on_chromosome_%s.png" % (out_dir, chromosome), dpi=300)
             plt.clf()
-            
+        
         quantQ_chromosome = np.nanquantile(distribution_of_ranks, [init_filter_p], method='interpolated_inverted_cdf')
         ax = sns.distplot(distribution_of_ranks)
         ax.set(xlabel='sum difference in observed vs expected', ylabel='count')
