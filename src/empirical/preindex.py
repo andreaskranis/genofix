@@ -142,6 +142,9 @@ USAGE
     for chromosome in sorted(chromosome2snp.keys()) :
         if chromosome == "" or chromosome == "-999" or chromosome == "-9" :
             continue
+        
+        pathlib.Path("%s/%s" % (out_dir,chromosome)).mkdir(parents=True, exist_ok=True)
+        
         snpsToImport = chromosome2snp[chromosome]
         filtercolumns = ["id"]+snpsToImport
         print("calculating chromosome %s: importing %s snps" % (chromosome, len(snpsToImport)))
