@@ -216,7 +216,7 @@ USAGE
         
         quantQ_chromosome_individual = np.nanquantile(individualSumProbs, [init_filter_p], method='interpolated_inverted_cdf')
         
-        model = GaussianMixture(2).fit(individualSumProbs)
+        model = GaussianMixture(2).fit(individualSumProbs.reshape(-1, 1))
         m = model.means_
         cov = model.covariances_
         stdev = [ np.sqrt(  cov[i]) for i in range(0,2) ]
