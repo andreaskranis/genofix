@@ -42,6 +42,10 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+from sklearn.mixture import GaussianMixture
+import scipy
+
+
 __all__ = []
 __version__ = 0.1
 __date__ = '2022-07-26'
@@ -211,14 +215,26 @@ USAGE
         pathlib.Path("%s/%s" % (out_dir, chromosome)).mkdir(parents=True, exist_ok=True)
         
         quantQ_chromosome_individual = np.nanquantile(individualSumProbs, [init_filter_p], method='interpolated_inverted_cdf')
+        
+        model = GaussianMixture(2).fit(individualSumProbs)
+        m = model.means_
+        cov = model.covariances_
+        stdev = [ np.sqrt(  cov[i]) for i in range(0,2) ]
+        
+        lower1pc = scipy.stats.norm.ppf(0.01, m[np.argmax(m)],stdev[np.argmax(m)])
+        lower5pc = scipy.stats.norm.ppf(0.05, m[np.argmax(m)],stdev[np.argmax(m)])
+        
         ax = sns.distplot(individualSumProbs)
         ax.set(xlabel='sum difference in observed vs expected', ylabel='count')
         plt.axvline(quantQ_chromosome_individual, 0,1, color="black")
+        plt.axvline(lower1pc, 0,1, color="red")
+        plt.axvline(lower5pc, 0,1, color="blue")
+        
         plt.savefig("%s/%s/individuals_dist_histogram_preld_based_on_chromosome_%s.png" % (out_dir, chromosome, chromosome), dpi=300)
         plt.clf()
         
         if filteredIndividualsQuant:
-            candidatesForEval = genotypes.index[individualSumProbs < quantQ_chromosome_individual] 
+            candidatesForEval = genotypes.index[individualSumProbs < lower1pc] 
             filteredIndividualsQuant = True
         
         probs_errors = probs_errors.loc[candidatesForEval,:]
