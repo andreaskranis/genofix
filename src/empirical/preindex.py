@@ -221,20 +221,20 @@ USAGE
         cov = model.covariances_
         stdev = [ np.sqrt(  cov[i]) for i in range(0,2) ]
         
-        lower1pc = scipy.stats.norm.ppf(0.01, m[np.argmax(m)],stdev[np.argmax(m)])
-        lower5pc = scipy.stats.norm.ppf(0.05, m[np.argmax(m)],stdev[np.argmax(m)])
+        upper1pc = scipy.stats.norm.ppf(0.99, m[np.argmax(m)],stdev[np.argmin(m)])
+        upper5pc = scipy.stats.norm.ppf(0.95, m[np.argmax(m)],stdev[np.argmin(m)])
         
         ax = sns.distplot(individualSumProbs)
         ax.set(xlabel='sum difference in observed vs expected', ylabel='count')
         plt.axvline(quantQ_chromosome_individual, 0,1, color="black")
-        plt.axvline(lower1pc, 0,1, color="red")
-        plt.axvline(lower5pc, 0,1, color="blue")
+        plt.axvline(upper1pc, 0,1, color="red")
+        plt.axvline(upper5pc, 0,1, color="blue")
         
         plt.savefig("%s/%s/individuals_dist_histogram_preld_based_on_chromosome_%s.png" % (out_dir, chromosome, chromosome), dpi=300)
         plt.clf()
         
         if filteredIndividualsQuant:
-            candidatesForEval = genotypes.index[individualSumProbs < lower1pc] 
+            candidatesForEval = genotypes.index[individualSumProbs < upper5pc] 
             filteredIndividualsQuant = True
         
         probs_errors = probs_errors.loc[candidatesForEval,:]
