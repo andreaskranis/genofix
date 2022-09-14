@@ -19,6 +19,7 @@ It defines classes_and_methods
 
 from gfutils import pickle_util
 
+import gzip
 import sys
 import os
 import correct_genotypes2
@@ -116,6 +117,19 @@ USAGE
     pedigree = args.pedigree
     surroundsnps = args.surround_size
 
+    headerline = None
+    all_ids = None
+    if genotypes_input_file.endswith(".gz") :
+        with gzip.open(genotypes_input_file,'r') as filin:
+            headerline = filin.readline().split(' ')
+            all_ids = [line.rstrip('\n').split(' ')[0] for line in filin]
+    else:
+        with open(genotypes_input_file,'r') as filin:
+            headerline = filin.readline().split(' ')
+            all_ids = [line.rstrip('\n').split(' ')[0] for line in filin]
+            
+    print("Detected %s individuals and %s snps in input file" % (len(all_ids), len(headerline)-1))
+    
     pedigree = PedigreeDAG.from_file(args.pedigree)
     genomein = pd.read_csv(args.snps, sep=',', names = ["snpid", "chrom","pos", "topAllele","B"], skiprows=1, engine='c',low_memory=False, memory_map=True)
     genomein = genomein.sort_values(by=["chrom", "pos"], ascending=[True, True])
@@ -163,6 +177,7 @@ USAGE
         
         if candidatesForEval is None:
             candidatesForEval = list()
+            print("added %s kids and their parents")
             for kid in genotypes.index :
                 sire, dam = pedigree.get_parents(kid)
                 if sire in genotypes.index and dam in genotypes.index:
