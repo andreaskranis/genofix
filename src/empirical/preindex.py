@@ -173,7 +173,7 @@ USAGE
         probs_errors = pd.DataFrame(np.zeros(genotypes.shape, dtype=np.float16), columns=genotypes.columns, index=genotypes.index)
         
         #populate_base_probs
-        print("pre-calculate mendel probs on all individuals")
+        print("pre-calculate mendel probs on %s individuals" % len(candidatesForEval))
         with concurrent.futures.ProcessPoolExecutor(max_workers=threads, 
                                                     initializer=correct_genotypes2.initializer,
                                                     initargs=(genotypes,pedigree, None)) as executor:
