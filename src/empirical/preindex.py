@@ -164,7 +164,7 @@ USAGE
 
     print("Out of %s animals %s have two parents" % (len(g_cache.all_ids),len(animalswithparents)))
 
-    chunks = chunk(animalswithparents, 10000, 0, 0)
+    chunks = chunk(animalswithparents, 3000, 0, 0)
     for i, kid_ids in enumerate(chunks):
         print("correcting chunk %s of %s with %s snps in chunk" % ( i, len(chunks), len(snps)))
     
