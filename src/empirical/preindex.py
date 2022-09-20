@@ -120,7 +120,9 @@ USAGE
     pedigree = args.pedigree
     surroundsnps = args.surround_size
 
+    print("building cache index from %s: this may take some time" % genotypes_input_file)
     g_cache = GensCache(genotypes_input_file, header=True)
+    print("DONE !!! building cache index from %s" % genotypes_input_file)
     
     print("Detected %s individuals and %s snps in input file" % (len(g_cache.all_ids), len(g_cache.snps)-1))
     
@@ -146,11 +148,7 @@ USAGE
     
     ###############
     
-    quant95_t, quant99_t, quantQ = None,None,None
-    maxsumprobs = 0
-    candidatesForEval = None # defined on first pass of largest chromosome as individuals in lower 90% quantile of error
-    filteredIndividualsQuant = False # have we done a filter yet
-    
+
     snp2index = {}
     
     def chunk(l, n, b=0, m=2):
@@ -158,150 +156,170 @@ USAGE
         groups = filter( lambda x: len(x) > m, (l[i:] if len(l)-(i+n+b) < m else l[i:i+n+b] for i in range(0, len(l), n)))
         return list(groups)
     chunks = chunk(g_cache.all_ids, 10000, -1, 0)
-    for i, kid_id in enumerate(chunks):
+    for i, kid_ids in enumerate(chunks):
         print("correcting chunk %s of %s with %s snps in chunk" % ( i, len(chunks), len(snps)))
     
-    for chromosome in sorted(chromosome2snp.keys()) :
-        if chromosome == "" or chromosome == "-999" or chromosome == "-9" :
-            continue
-        pathlib.Path("%s/%s" % (out_dir,chromosome)).mkdir(parents=True, exist_ok=True)
-        snpsToImport = chromosome2snp[chromosome]
-        filtercolumns = ["id"]+snpsToImport
-        print("calculating chromosome %s: importing %s snps" % (chromosome, len(snpsToImport)))
-        datatypes = {snp:np.uint8 for snp in snps} | {"id":np.uint64}
-        if genotypes_input_file.endswith(".gz") :
-            genotypes = pd.read_csv(genotypes_input_file, usecols=filtercolumns,
-                                    sep=" ", compression='gzip', header=0, index_col=0, engine="c", dtype=datatypes, low_memory=False, memory_map=True, skiprows)
-        else :
-            genotypes = pd.read_csv(genotypes_input_file, usecols=filtercolumns,
-                                     sep=" ", header=0, index_col=0, engine="c", dtype=datatypes, low_memory=False, memory_map=True, skiprows=)
-        print("Loaded genotype matrix with %s individuals X %s snps " % genotypes.shape)
+        candidate_kids = list()
+        for kid in kid_ids:
+            candidate_kids.append(kid)
+            sire, dam = pedigree.get_parents(kid)
+            if sire in g_cache.all_ids:
+                candidate_kids.append(sire)
+            if dam in g_cache.all_ids:
+                candidate_kids.append(dam) 
         
-        if candidatesForEval is None:
-            candidatesForEval = list()
-            print("added %s kids and their parents")
-            for kid in genotypes.index :
-                sire, dam = pedigree.get_parents(kid)
-                if sire in genotypes.index and dam in genotypes.index:
-                    candidatesForEval.append(kid)
+        print("kids in chunk %s, with their included genotyped parents %s" % (len(kid_ids), len(candidate_kids)))
         
-        genotypes = genotypes.loc[candidatesForEval,chromosome2snp[chromosome]]
-        print("genotype matrix for eval is %s individuals X %s snps after only trio candidates retained" %genotypes.shape)
-        probs_errors = pd.DataFrame(np.zeros(genotypes.shape, dtype=np.float16), columns=genotypes.columns, index=genotypes.index)
+        quant95_t, quant99_t, quantQ = None,None,None
+        maxsumprobs = 0
+        candidatesForEval = None # defined on first pass of largest chromosome as individuals in lower 90% quantile of error
+        filteredIndividualsQuant = False # have we done a filter yet
         
-        #populate_base_probs
-        print("pre-calculate mendel probs on %s individuals" % len(candidatesForEval))
-        with concurrent.futures.ProcessPoolExecutor(max_workers=threads, 
-                                                    initializer=correct_genotypes2.initializer,
-                                                    initargs=(genotypes,pedigree, None)) as executor:
-            #for kid in tqdm(pedigree.males.union(pedigree.females)):
-            #    x, b = self.mendelProbsSingle(corrected_genotype, pedigree, kid, back)
-            #    print("kid %s done" % kid)
-            futures = {executor.submit(correct_genotypes2.CorrectGenotypes.mendelProbsSingle, kid, 2, elimination_order="MinNeighbors"):kid for kid in candidatesForEval}
-            print("waiting on %s queued jobs with %s threads" % (len(futures), threads))
-            with tqdm(total=len(futures)) as pbar:
-                for future in concurrent.futures.as_completed(futures) :
-                    kid = futures[future]
-                    pbar.update(1)
-                    e = future.exception()
-                    if e is not None:
-                        print(repr(e))
-                        raise(e)
-                    __, probsErrors, __ = future.result()
-                    probs_errors.loc[kid,:] = np.squeeze(probsErrors).astype(np.float16) # 
-                    #blanket of partners parents and kids
-                    del probsErrors
-                    del futures[future]
-                    del future
-                    del __
-            print("mendel precalc done")
-        
-        #minnonzeroprobs = np.min(maxsumprobs)
-        maxsumprobs = np.nanmax((maxsumprobs, np.nanmax(probs_errors)))
-        print("maximum ranking for error = %s" % maxsumprobs)
-        
-        probs_errors = np.log(np.log(probs_errors+1)+1)
-        maxsumprobs = np.nanmax(probs_errors)
-        probs_errors = probs_errors/np.nanmax(maxsumprobs)
-        probs_errors[genotypes == 9] = 1
-        probs_errors[genotypes == -9] = 1
-        
-        individualSumProbs = probs_errors.sum(axis=1).to_numpy()
-        individualSumProbs = individualSumProbs/np.nanmax(individualSumProbs)
-        
-        pathlib.Path("%s/%s" % (out_dir, chromosome)).mkdir(parents=True, exist_ok=True)
-        
-        quantQ_chromosome_individual = np.nanquantile(individualSumProbs, [init_filter_p], method='interpolated_inverted_cdf')
-        
-        model = GaussianMixture(2).fit(individualSumProbs.reshape(-1, 1))
-        m = model.means_
-        cov = model.covariances_
-        stdev = [ np.sqrt(  cov[i]) for i in range(0,2) ]
-        
-        upper1pc = scipy.stats.norm.ppf(0.99, m[np.argmax(m)],stdev[np.argmin(m)])
-        upper5pc = scipy.stats.norm.ppf(0.95, m[np.argmax(m)],stdev[np.argmin(m)])
-        
-        ax = sns.distplot(individualSumProbs)
-        ax.set(xlabel='sum difference in observed vs expected', ylabel='count')
-        plt.axvline(quantQ_chromosome_individual, 0,1, color="black")
-        plt.axvline(upper1pc, 0,1, color="red")
-        plt.axvline(upper5pc, 0,1, color="blue")
-        
-        plt.savefig("%s/%s/individuals_dist_histogram_preld_based_on_chromosome_%s.png" % (out_dir, chromosome, chromosome), dpi=300)
-        plt.clf()
-        
-        if filteredIndividualsQuant:
-            candidatesForEval = genotypes.index[individualSumProbs < upper5pc] 
-            filteredIndividualsQuant = True
-        
-        probs_errors = probs_errors.loc[candidatesForEval,:]
-        genotypes = genotypes.loc[candidatesForEval,:]
-        
-        distribution_of_ranks = probs_errors.to_numpy().flatten()
-        
-        if quant95_t is None :
-            print("calculating quantiles")
-            quant95_t, quant99_t, quantQ = np.nanquantile(distribution_of_ranks, [0.95,0.99, init_filter_p], method='interpolated_inverted_cdf')
+        for chromosome in sorted(chromosome2snp.keys()) :
+            if chromosome == "" or chromosome == "-999" or chromosome == "-9" :
+                continue
+            pathlib.Path("%s/%s" % (out_dir,chromosome)).mkdir(parents=True, exist_ok=True)
+            snpsToImport = chromosome2snp[chromosome]
+            filtercolumns = ["id"]+snpsToImport
+            print("calculating chromosome %s: importing %s snps" % (chromosome, len(snpsToImport)))
+            datatypes = {snp:np.uint8 for snp in snps} | {"id":np.uint64}
+            
+            genotypes = pd.DataFrame(data=g_cache.getMatrix(candidate_kids), index=candidate_kids, columns=g_cache.snps)
+            
+            #if genotypes_input_file.endswith(".gz") :
+            #    genotypes = pd.read_csv(genotypes_input_file, usecols=filtercolumns,
+            #                            sep=" ", compression='gzip', header=0, index_col=0, engine="c", dtype=datatypes, low_memory=False, memory_map=True, skiprows)
+            #else :
+            #    genotypes = pd.read_csv(genotypes_input_file, usecols=filtercolumns,
+            #                             sep=" ", header=0, index_col=0, engine="c", dtype=datatypes, low_memory=False, memory_map=True, skiprows=)
+            print("Loaded genotype matrix with %s individuals X %s snps " % genotypes.shape)
+            
+            if candidatesForEval is None:
+                candidatesForEval = list()
+                print("added %s kids and their parents")
+                for kid in genotypes.index :
+                    sire, dam = pedigree.get_parents(kid)
+                    if sire in genotypes.index and dam in genotypes.index:
+                        candidatesForEval.append(kid)
+            
+            genotypes = genotypes.loc[candidatesForEval,chromosome2snp[chromosome]]
+            print("genotype matrix for eval is %s individuals X %s snps after only trio candidates retained" %genotypes.shape)
+            probs_errors = pd.DataFrame(np.zeros(genotypes.shape, dtype=np.float16), columns=genotypes.columns, index=genotypes.index)
+            
+            #populate_base_probs
+            print("pre-calculate mendel probs on %s individuals" % len(candidatesForEval))
+            with concurrent.futures.ProcessPoolExecutor(max_workers=threads, 
+                                                        initializer=correct_genotypes2.initializer,
+                                                        initargs=(genotypes,pedigree, None)) as executor:
+                #for kid in tqdm(pedigree.males.union(pedigree.females)):
+                #    x, b = self.mendelProbsSingle(corrected_genotype, pedigree, kid, back)
+                #    print("kid %s done" % kid)
+                futures = {executor.submit(correct_genotypes2.CorrectGenotypes.mendelProbsSingle, kid, 2, elimination_order="MinNeighbors"):kid for kid in candidatesForEval}
+                print("waiting on %s queued jobs with %s threads" % (len(futures), threads))
+                with tqdm(total=len(futures)) as pbar:
+                    for future in concurrent.futures.as_completed(futures) :
+                        kid = futures[future]
+                        pbar.update(1)
+                        e = future.exception()
+                        if e is not None:
+                            print(repr(e))
+                            raise(e)
+                        __, probsErrors, __ = future.result()
+                        probs_errors.loc[kid,:] = np.squeeze(probsErrors).astype(np.float16) # 
+                        #blanket of partners parents and kids
+                        del probsErrors
+                        del futures[future]
+                        del future
+                        del __
+                print("mendel precalc done")
+            
+            #minnonzeroprobs = np.min(maxsumprobs)
+            maxsumprobs = np.nanmax((maxsumprobs, np.nanmax(probs_errors)))
+            print("maximum ranking for error = %s" % maxsumprobs)
+            
+            probs_errors = np.log(np.log(probs_errors+1)+1)
+            maxsumprobs = np.nanmax(probs_errors)
+            probs_errors = probs_errors/np.nanmax(maxsumprobs)
+            probs_errors[genotypes == 9] = 1
+            probs_errors[genotypes == -9] = 1
+            
+            individualSumProbs = probs_errors.sum(axis=1).to_numpy()
+            individualSumProbs = individualSumProbs/np.nanmax(individualSumProbs)
+            
+            pathlib.Path("%s/%s" % (out_dir, chromosome)).mkdir(parents=True, exist_ok=True)
+            
+            quantQ_chromosome_individual = np.nanquantile(individualSumProbs, [init_filter_p], method='interpolated_inverted_cdf')
+            
+            model = GaussianMixture(2).fit(individualSumProbs.reshape(-1, 1))
+            m = model.means_
+            cov = model.covariances_
+            stdev = [ np.sqrt(  cov[i]) for i in range(0,2) ]
+            
+            upper1pc = scipy.stats.norm.ppf(0.99, m[np.argmax(m)],stdev[np.argmin(m)])
+            upper5pc = scipy.stats.norm.ppf(0.95, m[np.argmax(m)],stdev[np.argmin(m)])
+            
+            ax = sns.distplot(individualSumProbs)
+            ax.set(xlabel='sum difference in observed vs expected', ylabel='count')
+            plt.axvline(quantQ_chromosome_individual, 0,1, color="black")
+            plt.axvline(upper1pc, 0,1, color="red")
+            plt.axvline(upper5pc, 0,1, color="blue")
+            
+            plt.savefig("%s/%s/individuals_dist_histogram_preld_based_on_chromosome_%s.png" % (out_dir, chromosome, chromosome), dpi=300)
+            plt.clf()
+            
+            if filteredIndividualsQuant:
+                #index on ONLY kids in chunk that pass confidence threshold
+                candidatesForEval = [x for x in genotypes.index[individualSumProbs < upper5pc] if x in kid_ids]
+                filteredIndividualsQuant = True
+            
+            probs_errors = probs_errors.loc[candidatesForEval,:]
+            genotypes = genotypes.loc[candidatesForEval,:]
+            
+            distribution_of_ranks = probs_errors.to_numpy().flatten()
+            
+            if quant95_t is None :
+                print("calculating quantiles")
+                quant95_t, quant99_t, quantQ = np.nanquantile(distribution_of_ranks, [0.95,0.99, init_filter_p], method='interpolated_inverted_cdf')
+                ax = sns.distplot(distribution_of_ranks)
+                ax.set(xlabel='sum difference in observed vs expected', ylabel='count')
+                plt.axvline(quant95_t, 0,1, color="blue", alpha=0.5, linestyle="--")
+                plt.axvline(quant99_t, 0,1, color="red", alpha=0.5, linestyle="--")
+                plt.axvline(quantQ, 0,1, color="black")
+                file = "%s/distribution_of_sum_error_ranks_histogram_preld_based_on_chromosome_%s.png" % (out_dir, chromosome)
+                print("save as %s" % file)
+                plt.savefig("%s/distribution_of_sum_error_ranks_histogram_preld_based_on_chromosome_%s.png" % (out_dir, chromosome), dpi=300)
+                plt.clf()
+            
+            quantQ_chromosome = np.nanquantile(distribution_of_ranks, [init_filter_p], method='interpolated_inverted_cdf')
             ax = sns.distplot(distribution_of_ranks)
             ax.set(xlabel='sum difference in observed vs expected', ylabel='count')
-            plt.axvline(quant95_t, 0,1, color="blue", alpha=0.5, linestyle="--")
-            plt.axvline(quant99_t, 0,1, color="red", alpha=0.5, linestyle="--")
-            plt.axvline(quantQ, 0,1, color="black")
-            file = "%s/distribution_of_sum_error_ranks_histogram_preld_based_on_chromosome_%s.png" % (out_dir, chromosome)
+            plt.axvline(quantQ_chromosome, 0,1, color="black")
+            plt.axvline(quantQ, 0,1, color="cyan")
+            file = "%s/%s/distribution_of_sum_error_ranks_histogram_preld_based_on_chromosome_%s.png" % (out_dir, chromosome, chromosome)
             print("save as %s" % file)
-            plt.savefig("%s/distribution_of_sum_error_ranks_histogram_preld_based_on_chromosome_%s.png" % (out_dir, chromosome), dpi=300)
+            plt.savefig(file, dpi=300)
             plt.clf()
-        
-        quantQ_chromosome = np.nanquantile(distribution_of_ranks, [init_filter_p], method='interpolated_inverted_cdf')
-        ax = sns.distplot(distribution_of_ranks)
-        ax.set(xlabel='sum difference in observed vs expected', ylabel='count')
-        plt.axvline(quantQ_chromosome, 0,1, color="black")
-        plt.axvline(quantQ, 0,1, color="cyan")
-        file = "%s/%s/distribution_of_sum_error_ranks_histogram_preld_based_on_chromosome_%s.png" % (out_dir, chromosome, chromosome)
-        print("save as %s" % file)
-        plt.savefig(file, dpi=300)
-        plt.clf()
-        
-        print("initial P of errors calculated with 95pc-quantile = %s, 99pc-quantile = %s, and cuttoff %s-quantile = %s" % (quant95_t, quant99_t, init_filter_p, quantQ))
-        
-        if chromosome not in snp2index :
-            print("calculating new LDDist ")
-            empC = JointAllellicDistribution(list(genotypes.columns),
-                                            surround_size=surroundsnps,
-                                            chromosome2snp=chromosome2snp)
-        else 
-            empC = snp2index[empC]
-        
-        print("create mask")
-        mask = np.array(probs_errors.to_numpy() <= quantQ, dtype=bool)
-        print("calc empirical ld on genotype with %s of %s (%6.2f pc) under cuttoff %6.6f mendel errors after removing > %s quantile of mendel errors" % 
-              (np.count_nonzero(mask), mask.size, (np.count_nonzero(mask)/mask.size)*100,quantQ, init_filter_p))
-        
-        #clear up memory before empirical count
-        del probs_errors
-        del distribution_of_ranks
-        empC.countJointFrqAll(genotypes, mask)
-        
+            
+            print("initial P of errors calculated with 95pc-quantile = %s, 99pc-quantile = %s, and cuttoff %s-quantile = %s" % (quant95_t, quant99_t, init_filter_p, quantQ))
+            
+            if chromosome not in snp2index :
+                print("calculating new LDDist ")
+                empC = JointAllellicDistribution(list(genotypes.columns),
+                                                surround_size=surroundsnps,
+                                                chromosome2snp=chromosome2snp)
+            else 
+                empC = snp2index[empC]
+            
+            print("create mask")
+            mask = np.array(probs_errors.to_numpy() <= quantQ, dtype=bool)
+            print("calc empirical ld on genotype with %s of %s (%6.2f pc) under cuttoff %6.6f mendel errors after removing > %s quantile of mendel errors" % 
+                  (np.count_nonzero(mask), mask.size, (np.count_nonzero(mask)/mask.size)*100,quantQ, init_filter_p))
+            
+            #clear up memory before empirical count
+            del probs_errors
+            del distribution_of_ranks
+            empC.countJointFrqAll(genotypes, mask)
+            
     for chromosome, empC in snp2index.items():
         print("write index to %s " % "%s/%s/empiricalIndex.idx.gz" % (out_dir, chromosome))
         pickle_util.dumpToPickle("%s/%s/empiricalIndex.idx.gz" % (out_dir, chromosome), empC)
