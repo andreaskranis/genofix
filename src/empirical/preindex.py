@@ -158,7 +158,7 @@ USAGE
     
     animalswithparents = list()
     for kid in g_cache.all_ids :
-        sire, dam = pedigree.get_parents(kid)
+        sire, dam = pedigree.get_parents(int(kid))
         if str(sire) in g_cache.all_ids and str(dam) in g_cache.all_ids:
             animalswithparents.append(kid)
         elif str(sire) in g_cache.all_ids:
