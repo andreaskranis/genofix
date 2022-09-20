@@ -168,14 +168,14 @@ USAGE
     for i, kid_ids in enumerate(chunks):
         print("correcting chunk %s of %s with %s snps in chunk" % ( i, len(chunks), len(snps)))
     
-        candidate_kids = list()
+        candidate_kids = set()
         for kid in kid_ids:
-            candidate_kids.append(kid)
+            candidate_kids.add(kid)
             sire, dam = pedigree.get_parents(kid)
             if sire in g_cache.all_ids:
-                candidate_kids.append(sire)
+                candidate_kids.add(sire)
             if dam in g_cache.all_ids:
-                candidate_kids.append(dam)
+                candidate_kids.add(dam)
         
         print("kids in chunk %s, with their included genotyped parents %s" % (len(kid_ids), len(candidate_kids)))
         
@@ -204,12 +204,12 @@ USAGE
             print("Loaded genotype matrix with %s individuals X %s snps " % genotypes.shape)
             
             if candidatesForEval is None:
-                candidatesForEval = list()
+                candidatesForEval = set()
                 print("added %s kids and their parents")
                 for kid in genotypes.index :
                     sire, dam = pedigree.get_parents(kid)
                     if sire in genotypes.index and dam in genotypes.index:
-                        candidatesForEval.append(kid)
+                        candidatesForEval.add(kid)
             
             genotypes = genotypes.loc[candidatesForEval,chromosome2snp[chromosome]]
             print("genotype matrix for eval is %s individuals X %s snps after only trio candidates retained" %genotypes.shape)
