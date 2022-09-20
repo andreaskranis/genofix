@@ -10,14 +10,12 @@ import numpy as np
 class GensCache():
     
     def __init__(self, gensfile, header=False, delimiter=' '):
-        print("bla %s" % gensfile)
         self.headerline = None
         self.all_ids = None
         self.kid2index = None
         self.gensfile = gensfile
         self.snps = None
         self.all_ids = None
-        print(gensfile)
         if gensfile.endswith(".gz") :
             with gzip.open(gensfile,'r') as filin:
                 if header: 
