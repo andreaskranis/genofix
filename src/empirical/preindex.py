@@ -158,11 +158,9 @@ USAGE
     
     animalswithparents = list()
     for kid in g_cache.all_ids :
-        sire, dam = pedigree.get_parents(int(kid))
-        if str(sire) in g_cache.all_ids and str(dam) in g_cache.all_ids:
+        sire, dam = pedigree.get_parents(kid)
+        if sire in g_cache.all_ids and dam in g_cache.all_ids:
             animalswithparents.append(kid)
-        elif str(sire) in g_cache.all_ids:
-            print(sire)
 
     print("Out of %s animals %s have two parents" % (len(g_cache.all_ids),len(animalswithparents)))
 
@@ -174,10 +172,10 @@ USAGE
         for kid in kid_ids:
             candidate_kids.append(kid)
             sire, dam = pedigree.get_parents(kid)
-            if str(sire) in g_cache.all_ids:
-                candidate_kids.append(str(sire))
-            if str(dam) in g_cache.all_ids:
-                candidate_kids.append(str(dam))
+            if sire in g_cache.all_ids:
+                candidate_kids.append(sire)
+            if dam in g_cache.all_ids:
+                candidate_kids.append(dam)
         
         print("kids in chunk %s, with their included genotyped parents %s" % (len(kid_ids), len(candidate_kids)))
         
