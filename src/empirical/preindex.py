@@ -48,7 +48,7 @@ import scipy
 
 import linecache
 
-from gfutils.gensrangaccess import GensCache
+from gfutils.gensrandaccess import GensCache
 
 __all__ = []
 __version__ = 0.1
