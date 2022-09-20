@@ -20,22 +20,23 @@ class GensCache():
             with gzip.open(gensfile,'r') as filin:
                 if header: 
                     self.snps = filin.readline().split(delimiter)[1:]
-                kid2index = {line.rstrip('\n').split(delimiter)[0]:i for i,line in enumerate(filin)}
-                self.all_ids = list(kid2index.keys())
+                self.kid2index = {int(line.rstrip('\n').split(delimiter)[0]):i for i,line in enumerate(filin)}
+                self.all_ids = list(self.kid2index.keys())
         else:
             with open(gensfile,'r') as filin:
                 if header: 
                     self.snps = filin.readline().split(delimiter)[1:]
                 #print(filin.readline())
-                self.kid2index = {line.rstrip('\n').split(delimiter)[0]:i for i,line in enumerate(filin)}
+                self.kid2index = {int(line.rstrip('\n').split(delimiter)[0]):i for i,line in enumerate(filin)}
                 self.all_ids = list(self.kid2index.keys())
-        
+        print(np.array(self.all_ids))
+    
     def getMatrix(self, ids) :
         print("getMatrix")
         print(np.array(ids))
         matresult = list()
-        ids=[self.kid2index[x]+3 for x in ids if x in self.kid2index]
-        errors = [x for x in ids if x not in self.kid2index]
+        ids=[self.kid2index[int(x)]+3 for x in ids if int(x) in self.kid2index]
+        errors = [x for x in ids if int(x) not in self.kid2index]
         #if len(errors) > 0:
         #   print("ERROR: following ids not found: %s : ERRORS" % ", ".join(map(str,errors)))
         for idA in ids:
