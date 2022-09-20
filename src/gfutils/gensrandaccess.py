@@ -28,7 +28,7 @@ class GensCache():
             with open(gensfile,'r') as filin:
                 if header: 
                     self.snps = filin.readline().split(delimiter)[1:]
-                print(filin.readline())
+                #print(filin.readline())
                 self.kid2index = {line.rstrip('\n').split(delimiter)[0]:i for i,line in enumerate(filin)}
                 self.all_ids = list(self.kid2index.values())
     
