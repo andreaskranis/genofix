@@ -32,7 +32,7 @@ class GensCache():
         
     def getMatrix(self, ids) :
         print("getMatrix")
-        print(np.array(self.ids))
+        print(np.array(ids))
         matresult = list()
         ids=[self.kid2index[x]+3 for x in ids if x in self.kid2index]
         errors = [x for x in ids if x not in self.kid2index]
