@@ -155,8 +155,9 @@ USAGE
         n = max(1, n)
         groups = filter( lambda x: len(x) > m, (l[i:] if len(l)-(i+n+b) < m else l[i:i+n+b] for i in range(0, len(l), n)))
         return list(groups)
-        chunks = chunk(g_cache.all_ids, 10000, 0, 0)
-        for i, kid_ids in enumerate(chunks):
+    
+    chunks = chunk(g_cache.all_ids, 10000, 0, 0)
+    for i, kid_ids in enumerate(chunks):
         print("correcting chunk %s of %s with %s snps in chunk" % ( i, len(chunks), len(snps)))
     
         candidate_kids = list()
