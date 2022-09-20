@@ -46,6 +46,9 @@ import seaborn as sns
 from sklearn.mixture import GaussianMixture
 import scipy
 
+import linecache
+
+from gfutils.gensrangaccess import GensCache
 
 __all__ = []
 __version__ = 0.1
@@ -117,18 +120,9 @@ USAGE
     pedigree = args.pedigree
     surroundsnps = args.surround_size
 
-    headerline = None
-    all_ids = None
-    if genotypes_input_file.endswith(".gz") :
-        with gzip.open(genotypes_input_file,'r') as filin:
-            headerline = filin.readline().split(' ')
-            all_ids = [line.rstrip('\n').split(' ')[0] for line in filin]
-    else:
-        with open(genotypes_input_file,'r') as filin:
-            headerline = filin.readline().split(' ')
-            all_ids = [line.rstrip('\n').split(' ')[0] for line in filin]
-            
-    print("Detected %s individuals and %s snps in input file" % (len(all_ids), len(headerline)-1))
+    g_cache = GensCache(genotypes_input_file, header=True)
+    
+    print("Detected %s individuals and %s snps in input file" % (len(g_cache.all_ids), len(g_cache.snps)-1))
     
     pedigree = PedigreeDAG.from_file(args.pedigree)
     genomein = pd.read_csv(args.snps, sep=',', names = ["snpid", "chrom","pos", "topAllele","B"], skiprows=1, engine='c',low_memory=False, memory_map=True)
@@ -157,22 +151,30 @@ USAGE
     candidatesForEval = None # defined on first pass of largest chromosome as individuals in lower 90% quantile of error
     filteredIndividualsQuant = False # have we done a filter yet
     
+    snp2index = {}
+    
+    def chunk(l, n, b=0, m=2):
+        n = max(1, n)
+        groups = filter( lambda x: len(x) > m, (l[i:] if len(l)-(i+n+b) < m else l[i:i+n+b] for i in range(0, len(l), n)))
+        return list(groups)
+    chunks = chunk(g_cache.all_ids, 10000, -1, 0)
+    for i, kid_id in enumerate(chunks):
+        print("correcting chunk %s of %s with %s snps in chunk" % ( i, len(chunks), len(snps)))
+    
     for chromosome in sorted(chromosome2snp.keys()) :
         if chromosome == "" or chromosome == "-999" or chromosome == "-9" :
             continue
-        
         pathlib.Path("%s/%s" % (out_dir,chromosome)).mkdir(parents=True, exist_ok=True)
-        
         snpsToImport = chromosome2snp[chromosome]
         filtercolumns = ["id"]+snpsToImport
         print("calculating chromosome %s: importing %s snps" % (chromosome, len(snpsToImport)))
         datatypes = {snp:np.uint8 for snp in snps} | {"id":np.uint64}
         if genotypes_input_file.endswith(".gz") :
             genotypes = pd.read_csv(genotypes_input_file, usecols=filtercolumns,
-                                    sep=" ", compression='gzip', header=0, index_col=0, engine="c", dtype=datatypes, low_memory=False, memory_map=True)
+                                    sep=" ", compression='gzip', header=0, index_col=0, engine="c", dtype=datatypes, low_memory=False, memory_map=True, skiprows)
         else :
             genotypes = pd.read_csv(genotypes_input_file, usecols=filtercolumns,
-                                     sep=" ", header=0, index_col=0, engine="c", dtype=datatypes, low_memory=False, memory_map=True)
+                                     sep=" ", header=0, index_col=0, engine="c", dtype=datatypes, low_memory=False, memory_map=True, skiprows=)
         print("Loaded genotype matrix with %s individuals X %s snps " % genotypes.shape)
         
         if candidatesForEval is None:
@@ -282,10 +284,14 @@ USAGE
         
         print("initial P of errors calculated with 95pc-quantile = %s, 99pc-quantile = %s, and cuttoff %s-quantile = %s" % (quant95_t, quant99_t, init_filter_p, quantQ))
         
-        print("calculating LDDist ")
-        empC = JointAllellicDistribution(list(genotypes.columns),
-                                        surround_size=surroundsnps,
-                                        chromosome2snp=chromosome2snp)
+        if chromosome not in snp2index :
+            print("calculating new LDDist ")
+            empC = JointAllellicDistribution(list(genotypes.columns),
+                                            surround_size=surroundsnps,
+                                            chromosome2snp=chromosome2snp)
+        else 
+            empC = snp2index[empC]
+        
         print("create mask")
         mask = np.array(probs_errors.to_numpy() <= quantQ, dtype=bool)
         print("calc empirical ld on genotype with %s of %s (%6.2f pc) under cuttoff %6.6f mendel errors after removing > %s quantile of mendel errors" % 
@@ -294,11 +300,12 @@ USAGE
         #clear up memory before empirical count
         del probs_errors
         del distribution_of_ranks
-        
         empC.countJointFrqAll(genotypes, mask)
         
+    for chromosome, empC in snp2index.items():
+        print("write index to %s " % "%s/%s/empiricalIndex.idx.gz" % (out_dir, chromosome))
         pickle_util.dumpToPickle("%s/%s/empiricalIndex.idx.gz" % (out_dir, chromosome), empC)
-        
+    
     
 if __name__ == "__main__":
     if TESTRUN:
