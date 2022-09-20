@@ -29,7 +29,8 @@ class GensCache():
                 #print(filin.readline())
                 self.kid2index = {line.rstrip('\n').split(delimiter)[0]:i for i,line in enumerate(filin)}
                 self.all_ids = list(self.kid2index.keys())
-    
+        print(np.array(self.all_ids))
+                
     def getMatrix(self, ids) :
         matresult = list()
         ids=[self.kid2index[x]+3 for x in ids if x in self.kid2index]
