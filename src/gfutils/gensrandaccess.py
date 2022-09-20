@@ -32,7 +32,10 @@ class GensCache():
     
     def getMatrix(self, ids) :
         matresult = list()
-        ids=[self.kid2index[x]+3 for x in ids]
+        ids=[self.kid2index[x]+3 for x in ids if x in self.kid2index]
+        errors = [x for x in ids if x not in self.kid2index]
+        if len(errors) > 0:
+            print("ERROR: following ids not found: %s" % ", ".join(errors))
         for idA in ids:
             line = linecache.getline(self.gensfile, idA).rstrip().split(' ')
             matresult.append(np.array(line[1:], dtype=np.int8))
