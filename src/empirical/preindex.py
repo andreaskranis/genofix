@@ -157,11 +157,12 @@ USAGE
         return list(groups)
     
     animalswithparents = list()
-    print("added %s kids and their parents")
     for kid in g_cache.all_ids :
         sire, dam = pedigree.get_parents(kid)
-        if sire in g_cache.all_ids and dam in g_cache.all_ids:
+        if str(sire) in g_cache.all_ids and str(dam) in g_cache.all_ids:
             animalswithparents.append(kid)
+        elif str(sire) in g_cache.all_ids:
+            print(sire)
 
     print("Out of %s animals %s have two parents" % (len(g_cache.all_ids),len(animalswithparents)))
 
