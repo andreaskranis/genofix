@@ -307,7 +307,7 @@ USAGE
                 empC = JointAllellicDistribution(list(genotypes.columns),
                                                 surround_size=surroundsnps,
                                                 chromosome2snp=chromosome2snp)
-            else 
+            else  :
                 empC = snp2index[empC]
             
             print("create mask")
