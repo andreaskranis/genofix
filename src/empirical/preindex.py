@@ -185,8 +185,9 @@ USAGE
         filteredIndividualsQuant = False # have we done a filter yet
         
         for chromosome in sorted(chromosome2snp.keys()) :
-            if chromosome == "" or chromosome == "-999" or chromosome == "-9" :
+            if chromosome == "" or chromosome == "-999" or chromosome == "-9" or len(chromosome2snp[chromosome]) < 2 :
                 continue
+            
             pathlib.Path("%s/%s" % (out_dir,chromosome)).mkdir(parents=True, exist_ok=True)
             snpsToImport = chromosome2snp[chromosome]
             filtercolumns = ["id"]+snpsToImport
@@ -212,7 +213,7 @@ USAGE
                         candidatesForEval.add(kid)
             
             genotypes = genotypes.loc[candidatesForEval,chromosome2snp[chromosome]]
-            print("genotype matrix for eval is %s individuals X %s snps after only trio candidates retained" %genotypes.shape)
+            print("genotype matrix for eval is %s individuals X %s snps after only trio candidates retained" % genotypes.shape)
             probs_errors = pd.DataFrame(np.zeros(genotypes.shape, dtype=np.float16), columns=genotypes.columns, index=genotypes.index)
             
             #populate_base_probs
