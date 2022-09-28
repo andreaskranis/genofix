@@ -194,7 +194,7 @@ USAGE
             print("calculating chromosome %s: importing %s snps" % (chromosome, len(snpsToImport)))
             datatypes = {snp:np.uint8 for snp in snps} | {"id":np.uint64}
             
-            genotypes = pd.DataFrame(data=g_cache.getMatrix(candidate_kids), index=candidate_kids, columns=g_cache.snps)
+            genotypes = pd.DataFrame(data=g_cache.getMatrix(list(candidate_kids)), index=list(candidate_kids), columns=g_cache.snps)
             
             #if genotypes_input_file.endswith(".gz") :
             #    genotypes = pd.read_csv(genotypes_input_file, usecols=filtercolumns,
