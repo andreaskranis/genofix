@@ -283,8 +283,8 @@ USAGE
                 candidatesForEval = [x for x in genotypes.index[individualSumProbs < upper5pc] if x in kid_ids]
                 filteredIndividualsQuant = True
             
-            probs_errors = probs_errors.loc[candidatesForEval,:]
-            genotypes = genotypes.loc[candidatesForEval,:]
+            probs_errors = probs_errors.loc[list(candidatesForEval),:]
+            genotypes = genotypes.loc[list(candidatesForEval),:]
             
             distribution_of_ranks = probs_errors.to_numpy().flatten()
             
