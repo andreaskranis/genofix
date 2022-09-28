@@ -185,7 +185,7 @@ USAGE
         filteredIndividualsQuant = False # have we done a filter yet
         
         for chromosome in sorted(chromosome2snp.keys()) :
-            if chromosome == "" or chromosome == "-999" or chromosome == "-9" or len(chromosome2snp[chromosome]) < 2 :
+            if chromosome == "" or chromosome == "-999" or chromosome == "-9" or chromosome == "9" or len(chromosome2snp[chromosome]) < 2 :
                 continue
             
             pathlib.Path("%s/%s" % (out_dir,chromosome)).mkdir(parents=True, exist_ok=True)
@@ -257,6 +257,7 @@ USAGE
             individualSumProbs = individualSumProbs/np.nanmax(individualSumProbs)
             
             pathlib.Path("%s/%s" % (out_dir, chromosome)).mkdir(parents=True, exist_ok=True)
+            pathlib.Path("%s/%s/%s" % (out_dir, chromosome, i)).mkdir(parents=True, exist_ok=True)
             
             quantQ_chromosome_individual = np.nanquantile(individualSumProbs, [init_filter_p], method='interpolated_inverted_cdf')
             
@@ -295,9 +296,9 @@ USAGE
                 plt.axvline(quant95_t, 0,1, color="blue", alpha=0.5, linestyle="--")
                 plt.axvline(quant99_t, 0,1, color="red", alpha=0.5, linestyle="--")
                 plt.axvline(quantQ, 0,1, color="black")
-                file = "%s/distribution_of_sum_error_ranks_histogram_preld_based_on_chromosome_%s.png" % (out_dir, chromosome)
+                file = "%s/%s/distribution_of_sum_error_ranks_histogram_preld_based_on_chromosome_%s.png" % (out_dir, i, chromosome)
                 print("save as %s" % file)
-                plt.savefig("%s/distribution_of_sum_error_ranks_histogram_preld_based_on_chromosome_%s.png" % (out_dir, chromosome), dpi=300)
+                plt.savefig(file, dpi=300)
                 plt.clf()
             
             quantQ_chromosome = np.nanquantile(distribution_of_ranks, [init_filter_p], method='interpolated_inverted_cdf')
@@ -305,7 +306,7 @@ USAGE
             ax.set(xlabel='sum difference in observed vs expected', ylabel='count')
             plt.axvline(quantQ_chromosome, 0,1, color="black")
             plt.axvline(quantQ, 0,1, color="cyan")
-            file = "%s/%s/distribution_of_sum_error_ranks_histogram_preld_based_on_chromosome_%s.png" % (out_dir, chromosome, chromosome)
+            file = "%s/%s/%s/distribution_of_sum_error_ranks_histogram_preld_based_on_chromosome_%s.png" % (out_dir, chromosome, i,chromosome)
             print("save as %s" % file)
             plt.savefig(file, dpi=300)
             plt.clf()
@@ -320,7 +321,6 @@ USAGE
             else  :
                 empC = snp2index[empC]
             
-            print("create mask")
             mask = np.array(probs_errors.to_numpy() <= quantQ, dtype=bool)
             print("calc empirical ld on genotype with %s of %s (%6.2f pc) under cuttoff %6.6f mendel errors after removing > %s quantile of mendel errors" % 
                   (np.count_nonzero(mask), mask.size, (np.count_nonzero(mask)/mask.size)*100,quantQ, init_filter_p))
@@ -329,7 +329,7 @@ USAGE
             del probs_errors
             del distribution_of_ranks
             empC.countJointFrqAll(genotypes, mask)
-            
+    
     for chromosome, empC in snp2index.items():
         print("write index to %s " % "%s/%s/empiricalIndex.idx.gz" % (out_dir, chromosome))
         pickle_util.dumpToPickle("%s/%s/empiricalIndex.idx.gz" % (out_dir, chromosome), empC)
