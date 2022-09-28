@@ -44,8 +44,8 @@ class GensCache():
         matresult = list(map(get_values, ids))
         return(np.vstack(matresult))
 
-g = GensCache("C:/Users/mhindle/Documents/psuk_1_00", header=True)
-print(g.getMatrix(["3653120310902","3656123492012","3659126571902","3662126631109"]))
-print(g.getMatrix(["3653120310902","3656123492012","3659126571902","3662126631109"]).shape)
+#g = GensCache("C:/Users/mhindle/Documents/psuk_1_00", header=True)
+#print(g.getMatrix(["3653120310902","3656123492012","3659126571902","3662126631109"]))
+#print(g.getMatrix(["3653120310902","3656123492012","3659126571902","3662126631109"]).shape)
 
 
