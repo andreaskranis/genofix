@@ -212,7 +212,7 @@ USAGE
                     if sire in genotypes.index and dam in genotypes.index:
                         candidatesForEval.add(kid)
             
-            genotypes = genotypes.loc[candidatesForEval,chromosome2snp[chromosome]]
+            genotypes = genotypes.loc[list(candidatesForEval),chromosome2snp[chromosome]]
             print("genotype matrix for eval is %s individuals X %s snps after only trio candidates retained" % genotypes.shape)
             probs_errors = pd.DataFrame(np.zeros(genotypes.shape, dtype=np.float16), columns=genotypes.columns, index=genotypes.index)
             
