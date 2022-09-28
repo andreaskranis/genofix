@@ -164,7 +164,7 @@ USAGE
 
     print("Out of %s animals %s have two parents" % (len(g_cache.all_ids),len(animalswithparents)))
 
-    chunks = chunk(animalswithparents, 3000, 0, 0)
+    chunks = chunk(animalswithparents, 10000, 0, 0)
     for i, kid_ids in enumerate(chunks):
         print("correcting chunk %s of %s with %s snps in chunk" % ( i, len(chunks), len(snps)))
     
@@ -296,7 +296,7 @@ USAGE
                 plt.axvline(quant95_t, 0,1, color="blue", alpha=0.5, linestyle="--")
                 plt.axvline(quant99_t, 0,1, color="red", alpha=0.5, linestyle="--")
                 plt.axvline(quantQ, 0,1, color="black")
-                file = "%s/%s/distribution_of_sum_error_ranks_histogram_preld_based_on_chromosome_%s.png" % (out_dir, i, chromosome)
+                file = "%s/%s/%s/REF_distribution_of_sum_error_ranks_histogram_preld_based_on_chromosome_%s.png" % (out_dir,chromosome, i, chromosome)
                 print("save as %s" % file)
                 plt.savefig(file, dpi=300)
                 plt.clf()
