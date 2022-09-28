@@ -102,12 +102,11 @@ class CorrectGenotypes(object):
                 
                 if sum(np.isnan(anc_probs)) > 0:
                     print("%s %s" % (anc_probs,observed))
+                    print("evidence %s" % (evidence))
+                    print("parents %s" % (parents))
                 
                 if observed in [0,1,2] and not np.isnan(anc_probs[observed]) :
                     anc_error = np.nanmax(anc_probs) - anc_probs[observed]
-                else :
-                    anc_probs = None
-                    anc_error = None
             else :
                 anc_probs = None
                 anc_error = None
