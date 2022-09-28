@@ -32,16 +32,17 @@ class GensCache():
         print(np.array(self.all_ids))
     
     def getMatrix(self, ids) :
-        print("getMatrix")
-        print(np.array(ids))
+        #print("getMatrix")
+        #print(np.array(ids))
         matresult = list()
         ids=[self.kid2index[int(x)]+3 for x in ids if int(x) in self.kid2index]
         errors = [x for x in ids if int(x) not in self.kid2index]
         #if len(errors) > 0:
         #   print("ERROR: following ids not found: %s : ERRORS" % ", ".join(map(str,errors)))
-        for idA in ids:
-            line = linecache.getline(self.gensfile, idA).rstrip().split(' ')
-            matresult.append(np.array(line[1:], dtype=np.int8))
+        
+        get_values = lambda idA: np.array(linecache.getline(self.gensfile, idA).rstrip().split(' ')[1:], dtype=np.int8))
+        matresult = map(get_values, ids)
+        
         return(np.vstack(matresult))
 
 #g = GensCache("C:/Users/mhindle/Documents/psuk_1_00", header=True)
