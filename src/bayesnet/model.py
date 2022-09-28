@@ -97,7 +97,7 @@ def generate_probs_differences_kids(kidstates, oneparentstates, observedstate):
     '''
     structA = [0,0,0,1,1,1,2,2,2]
     structB = [0,1,2,0,1,2,0,1,2]
-    statprobtable = np.zeros((len(kidstates),3))
+    statprobtable = np.zeros((len(kidstates),3), np.float16)
     
     kidstates = np.asarray(kidstates)
     oneparentstates = np.asarray(oneparentstates)
