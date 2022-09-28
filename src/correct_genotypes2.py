@@ -107,6 +107,9 @@ class CorrectGenotypes(object):
                 
                 if observed in [0,1,2] and not np.isnan(anc_probs[observed]) :
                     anc_error = np.nanmax(anc_probs) - anc_probs[observed]
+                else:
+                    anc_error = np.empty(3)
+                    anc_error = np.nan
             else :
                 anc_probs = None
                 anc_error = None
