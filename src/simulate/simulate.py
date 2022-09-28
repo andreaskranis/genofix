@@ -110,7 +110,7 @@ USAGE
         parser.add_argument("-E", "--elimination_order", dest="elimination_order", type=str, required=False, default="weightedminfill", choices=["weightedminfill","minneighbors","minweight","minfill"], help="elimination order in mendel prob calculation")
         parser.add_argument("-T", "--threads", dest="threads", type=int, required=False, default=multiprocessing.cpu_count(),  help="weight of empirical vs collected medelian error when ranking snps by error probability")
         parser.add_argument("-T", "--threads", dest="threads", type=int, required=False, default=multiprocessing.cpu_count(),  help="weight of empirical vs collected medelian error when ranking snps by error probability")
-        parser.add_argument('-M', '--microarray_errors', action='microarray_errors', action='store_true', default=False, help="model errors as microarray hmz<->htz swich errors")
+        parser.add_argument('-M', '--microarray_errors', dest='microarray_errors', action='store_true', default=False, help="model errors as microarray hmz<->htz swich errors")
         
         # Process arguments
         args = parser.parse_args()
