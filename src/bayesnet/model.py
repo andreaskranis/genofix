@@ -88,7 +88,7 @@ def generate_probs_kids(kidstates, oneparentstates):
         return(prob_result)
     return[1/3,1/3,1/3]
 
-print(generate_probs_kids([1,0,1,0,1],[2,2,2,2,2]))
+#print(generate_probs_kids([1,0,1,0,1],[2,2,2,2,2]))
 
 def generate_probs_differences_kids(kidstates, oneparentstates, observedstate):
     '''
