@@ -52,6 +52,7 @@ import linecache
 
 from gfutils.gensrandaccess import GensCache
 
+
 __all__ = []
 __version__ = 0.1
 __date__ = '2022-07-26'
@@ -59,6 +60,9 @@ __updated__ = '2022-07-26'
 
 TESTRUN = 0
 PROFILE = 0
+
+seedskidschunk = 5000
+
 
 class CLIError(Exception):
     '''Generic exception to raise and log different fatal errors.'''
@@ -166,7 +170,7 @@ USAGE
 
     print("Out of %s animals %s have two parents" % (len(g_cache.all_ids),len(animalswithparents)))
 
-    chunks = chunk(animalswithparents, 10000, 0, 0)
+    chunks = chunk(animalswithparents, seedskidschunk, 0, 0)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         for i, kid_ids in enumerate(chunks):
@@ -333,12 +337,12 @@ USAGE
                 del probs_errors
                 del distribution_of_ranks
                 empC.countJointFrqAll(genotypes, mask)
-    
-    for chromosome, empC in snp2index.items():
-        print("write index to %s " % "%s/%s/empiricalIndex.idx.gz" % (out_dir, chromosome))
-        pickle_util.dumpToPickle("%s/%s/empiricalIndex.idx.gz" % (out_dir, chromosome), empC)
-    
-    
+        
+        print("WRITING CHUNK %s" % i)
+        for chromosome, empC in snp2index.items():
+            print("write index to %s " % "%s/%s/empiricalIndex.idx.gz" % (out_dir, chromosome))
+            pickle_util.dumpToPickle("%s/%s/empiricalIndex.idx.gz" % (out_dir, chromosome), empC)
+        
 if __name__ == "__main__":
     if TESTRUN:
         import doctest
