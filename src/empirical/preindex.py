@@ -61,7 +61,7 @@ __updated__ = '2022-07-26'
 TESTRUN = 0
 PROFILE = 0
 
-seedskidschunk = 5000
+
 
 
 class CLIError(Exception):
@@ -110,6 +110,7 @@ USAGE
     parser.add_argument("-s", "--snps", dest="snps", required=True, help="snp map file")
     parser.add_argument("-T", "--threads", dest="threads", type=int, required=False, default=multiprocessing.cpu_count(),  help="weight of empirical vs collected medelian error when ranking snps by error probability")
     parser.add_argument("-q", "--initquantilefilter", dest="initquantilefilter", type=float, required=False, default=0.9,  help="initial filter to select upper quantile in error likelihood dist")
+    parser.add_argument("-c", "--seedskidschunk", dest="seedskidschunk", type=int, required=False, default=10000,  help="size of kid seed chunks")
     
     # Process arguments
     args = parser.parse_args()
@@ -118,9 +119,9 @@ USAGE
     out_dir = args.outdir
     pathlib.Path(out_dir).mkdir(parents=True, exist_ok=True)
 
-    init_filter_p=args.initquantilefilter
-    
+    init_filter_p= args.initquantilefilter
     threads= args.threads
+    seedskidschunk = args.seedskidschunk
 
     genotypes_input_file = args.genotypes_input_file
     pedigree = args.pedigree
@@ -199,7 +200,7 @@ USAGE
                 pathlib.Path("%s/%s" % (out_dir,chromosome)).mkdir(parents=True, exist_ok=True)
                 snpsToImport = chromosome2snp[chromosome]
                 filtercolumns = ["id"]+snpsToImport
-                print("calculating chromosome %s: importing %s snps" % (chromosome, len(snpsToImport)))
+                print("calculating chromosome %s chunk %s: importing %s snps" % (chromosome, i, len(snpsToImport)))
                 datatypes = {snp:np.uint8 for snp in snps} | {"id":np.uint64}
                 
                 genotypes = pd.DataFrame(data=g_cache.getMatrix(list(candidate_kids)), index=list(candidate_kids), columns=g_cache.snps)
