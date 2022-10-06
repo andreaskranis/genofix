@@ -200,7 +200,7 @@ USAGE
                 pathlib.Path("%s/%s" % (out_dir,chromosome)).mkdir(parents=True, exist_ok=True)
                 snpsToImport = chromosome2snp[chromosome]
                 filtercolumns = ["id"]+snpsToImport
-                print("calculating chromosome %s chunk %s: importing %s snps" % (chromosome, i, len(snpsToImport)))
+                print("calculating chromosome %s chunk %s of %s: importing %s snps" % (chromosome, i, len(chunks), len(snpsToImport)))
                 datatypes = {snp:np.uint8 for snp in snps} | {"id":np.uint64}
                 
                 genotypes = pd.DataFrame(data=g_cache.getMatrix(list(candidate_kids)), index=list(candidate_kids), columns=g_cache.snps)
