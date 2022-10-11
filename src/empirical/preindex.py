@@ -338,12 +338,11 @@ USAGE
                 del probs_errors
                 del distribution_of_ranks
                 empC.countJointFrqAll(genotypes, mask)
-        
-            print("WRITING CHUNK %s" % i)
-            for chromosome, empC in snp2index.items():
-                print("write index to %s " % "%s/%s/empiricalIndex.idx.gz" % (out_dir, chromosome))
-                pickle_util.dumpToPickle("%s/%s/empiricalIndex.idx.gz" % (out_dir, chromosome), empC)
-            
+                foutpickle = "%s/%s/empiricalIndex.idx.gz" % (out_dir, chromosome)
+                print("WRITING CHUNK %s chromosome %s to %s" % (i, chromosome, foutpickle))
+                print("write index to %s " % foutpickle)
+                pickle_util.dumpToPickle(foutpickle, empC)
+
 if __name__ == "__main__":
     if TESTRUN:
         import doctest
