@@ -13,23 +13,40 @@ import concurrent.futures
 from tqdm import tqdm
 import multiprocessing
 
+import zipfile
+import sys
+
 class JointAllellicDistribution(object):
 
-    def __init__(self, snp_ordered, chromosome2snp=None, pseudocount = 0.0001, surround_size=1, conditions_index=[0,1,2]):
+    def __init__(self, chromosome, snp_ordered, chromosome2snp=None, pseudocount = 0.0001, surround_size=1, conditions_index=[0,1,2]):
         self.pseudocount = pseudocount
         self.surround_size = surround_size
+        self.chromosome = chromosome
         self.window_size = (surround_size*2)+1
-        self.snp_ordered = snp_ordered
-        self.chromosome2snp = chromosome2snp
-        self.windows = {snp:self.getWindow(snp) for snp in self.snp_ordered}
+        self.snp_ordered = [sys.intern(x) for x in snp_ordered]
+        self.chromosome2snp = {k:sys.intern(v) for k,v in chromosome2snp}
+        self.windows = {snp:self.getWindow(snp) for snp in self.snp_ordered if snp in chromosome2snp[chromosome]}
         self.state_values = [values for values in list(itertools.product(conditions_index, repeat=self.window_size))]
-        print("init %s keys from %s snps" % (len(self.windows)*len(self.state_values), len(snp_ordered)))
-        print()
+        #print("init %s keys from %s snps" % (len(self.windows)*len(self.state_values), len(snp_ordered)))
         state_keys = set([tuple([(k,s) for k,s in zip(window, values)]) for values in self.state_values for window in self.windows.values()])
-        print("init frequency")
-        self.frequency: Dict[str,int] = dict.fromkeys(state_keys)
-        print("init DONE!")
+        #print("init frequency")
+        self.frequency: Dict[tuple,int] = dict.fromkeys(state_keys,pseudocount)
+        #print("init DONE!")
         #self.n_observations: Dict[str,int] = defaultdict(int)
+    
+    def toDisk(self, file_name_out):
+        with zipfile.ZipFile(file_name_out, 'w') as zipped_f:
+            zipped_f.writestr("pseudocount", str(self.pseudocount))
+            zipped_f.writestr("surround_size", str(self.surround_size))
+            zipped_f.writestr("window_size", str(self.window_size))
+            zipped_f.writestr("snp_ordered", "\n".join(map(str,self.snp_ordered)))
+            zipped_f.writestr("chromosome", str(self.chromosome))
+            print(len(self.chromosome2snp) )
+            if self.chromosome2snp is not None and len(self.chromosome2snp) > 0:
+                zipped_f.writestr("chromosome2snp", "\n".join([str(k)+"\t"+"\t".join(v) for k,v in self.chromosome2snp.items()]))                  
+            zipped_f.writestr("windows", "\n".join([str(k)+"\t"+"\t".join(v) for k,v in self.windows.items()]))
+            zipped_f.writestr("state_values", "\n".join(["\t".join(map(str,k)) for k in self.state_values]))
+            zipped_f.writestr("frequency", "\n".join(["\t".join([str(s)+":"+str(g) for s,g in k])+"\t"+"{:.9f}".format(v) for k,v in self.frequency.items()]))
     
     def getWindow(self, targetSnp):
         '''
@@ -53,7 +70,7 @@ class JointAllellicDistribution(object):
         return(self.getCountTable({x:9 for x in window}, targetSnp))
     
     def getCountTable(self, observedstates: dict, targetSnp):
-        all_obs = [(snpid,observedstates[snpid]) for snpid in self.windows[targetSnp]]
+        all_obs = [(sys.intern(snpid),observedstates[snpid]) for snpid in self.windows[targetSnp]]
         
         # we essentially create all possible queries for all 9 states and then restrict list to known states (recursion is probubly faster than this)
         if 9 in [x[1] for x in all_obs]:
@@ -65,7 +82,7 @@ class JointAllellicDistribution(object):
             queries = [all_obs]
 
         def copypastefunc(x, query):
-            return(tuple([(snpid,state) if snpid != targetSnp else (targetSnp,x) for snpid,state in query]))
+            return(tuple([(snpid,state) if snpid != targetSnp else (sys.intern(targetSnp),x) for snpid,state in query]))
         
         return [np.sum([self.frequency[copypastefunc(state, query)] for query in queries]) for state in [0,1,2]]
     
@@ -102,7 +119,7 @@ class JointAllellicDistribution(object):
             mask = np.ones(table.shape,dtype=bool)
         elif mask is pd.DataFrame:
             mask = mask.to_numpy(dtype=bool)
-            
+        
         with concurrent.futures.ProcessPoolExecutor(max_workers=threads) as executor:
             futures = {}
             for snp,window in self.windows.items() :
@@ -123,3 +140,16 @@ class JointAllellicDistribution(object):
                     results = future.result()
                     self.frequency.update(results)
             print("empirical count done")
+            
+import pickle
+import gzip
+myobj = pickle.load(gzip.open("C:\\Users\\mhindle\\Downloads\\empiricalIndex.idx.gz"))
+
+print(myobj.pseudocount)
+print(myobj.surround_size)
+print(myobj.window_size)
+print(len(myobj.snp_ordered))
+myobj.toDisk("C:\\Users\\mhindle\\Downloads\\custom_empiricalIndex.zip")
+
+print("done")
+

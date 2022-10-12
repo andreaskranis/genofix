@@ -138,7 +138,7 @@ USAGE
     genomein = genomein.sort_values(by=["chrom", "pos"], ascending=[True, True])
     print(genomein)
     
-    snps = [row["snpid"] for _index, row in genomein.iterrows()]#
+    snps = [sys.intern(row["snpid"]) for _index, row in genomein.iterrows()]#
     chromosome2snp = defaultdict(list)
     #chromosomes = set([row["chrom"] for _index, row in genomein.iterrows()])
     chromosomesnps = {}
@@ -146,16 +146,14 @@ USAGE
         if row["chrom"] not in chromosomesnps:
             chromosomesnps[row["chrom"]] = 1
         else:
-            chromosomesnps[row["chrom"]]+=1
-        if row["snpid"] not in chromosome2snp[row["chrom"]] :
+            chromosomesnps[row["chrom"]] += 1
+        if row["snpid"] not in chromosome2snp[sys.intern(row["chrom"])] :
             chromosome2snp[row["chrom"]].append(row["snpid"])
         else :
             raise Exception("Error in map file %s appears multiple times in chromosome %s " % (row["snpid"],row["chrom"]))
     print("%s" % [x for x in map(str,chromosome2snp.keys())] )
     
     ###############
-    
-
     snp2index = {}
     
     def chunk(l, n, b=0, m=2):
@@ -324,9 +322,10 @@ USAGE
                 
                 if chromosome not in snp2index :
                     print("calculating new LDDist ")
-                    empC = JointAllellicDistribution(list(genotypes.columns),
-                                                    surround_size=surroundsnps,
-                                                    chromosome2snp=chromosome2snp)
+                    empC = JointAllellicDistribution(chromosome,
+                                                     list(genotypes.columns),
+                                                    chromosome2snp=chromosome2snp,
+                                                    surround_size=surroundsnps)
                 else  :
                     empC = snp2index[empC]
                 
