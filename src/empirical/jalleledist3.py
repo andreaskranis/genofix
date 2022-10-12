@@ -24,7 +24,7 @@ class JointAllellicDistribution(object):
         self.chromosome = chromosome
         self.window_size = (surround_size*2)+1
         self.snp_ordered = [sys.intern(x) for x in snp_ordered]
-        self.chromosome2snp = {k:sys.intern(v) for k,v in chromosome2snp}
+        self.chromosome2snp = {k:sys.intern(v) for k,v in chromosome2snp.items()}
         self.windows = {snp:self.getWindow(snp) for snp in self.snp_ordered if snp in chromosome2snp[chromosome]}
         self.state_values = [values for values in list(itertools.product(conditions_index, repeat=self.window_size))]
         #print("init %s keys from %s snps" % (len(self.windows)*len(self.state_values), len(snp_ordered)))
