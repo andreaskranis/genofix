@@ -141,15 +141,17 @@ class JointAllellicDistribution(object):
                     self.frequency.update(results)
             print("empirical count done")
             
-import pickle
-import gzip
-myobj = pickle.load(gzip.open("C:\\Users\\mhindle\\Downloads\\empiricalIndex.idx.gz"))
-
-print(myobj.pseudocount)
-print(myobj.surround_size)
-print(myobj.window_size)
-print(len(myobj.snp_ordered))
-myobj.toDisk("C:\\Users\\mhindle\\Downloads\\custom_empiricalIndex.zip")
-
-print("done")
+#===============================================================================
+# import pickle
+# import gzip
+# myobj = pickle.load(gzip.open("C:\\Users\\mhindle\\Downloads\\empiricalIndex.idx.gz"))
+# 
+# print(myobj.pseudocount)
+# print(myobj.surround_size)
+# print(myobj.window_size)
+# print(len(myobj.snp_ordered))
+# myobj.toDisk("C:\\Users\\mhindle\\Downloads\\custom_empiricalIndex.zip")
+# 
+# print("done")
+#===============================================================================
 
