@@ -19,6 +19,7 @@ import sys
 class JointAllellicDistribution(object):
 
     def __init__(self, chromosome, snp_ordered, chromosome2snp=None, pseudocount = 0.0001, surround_size=1, conditions_index=[0,1,2]):
+        self.chromosome2snp = chromosome2snp
         self.pseudocount = pseudocount
         self.surround_size = surround_size
         self.chromosome = chromosome
@@ -40,7 +41,6 @@ class JointAllellicDistribution(object):
             zipped_f.writestr("window_size", str(self.window_size))
             zipped_f.writestr("snp_ordered", "\n".join(map(str,self.snp_ordered)))
             zipped_f.writestr("chromosome", str(self.chromosome))
-            print(len(self.chromosome2snp) )
             if self.chromosome2snp is not None and len(self.chromosome2snp) > 0:
                 zipped_f.writestr("chromosome2snp", "\n".join([str(k)+"\t"+"\t".join(v) for k,v in self.chromosome2snp.items()]))                  
             zipped_f.writestr("windows", "\n".join([str(k)+"\t"+"\t".join(v) for k,v in self.windows.items()]))
@@ -59,9 +59,6 @@ class JointAllellicDistribution(object):
         if endpos_snp >= len(self.snp_ordered):
             endpos_snp = len(self.snp_ordered)-1
         snpWindow = self.snp_ordered[startpos_snp:endpos_snp]
-        if self.chromosome2snp is not None:
-            targetchr = self.chromosome2snp[targetSnp]
-            return([snpId for snpId in snpWindow if self.chromosome2snp[snpId] == targetchr])
         return(snpWindow)
     
     def getObservations(self, targetSnp):
