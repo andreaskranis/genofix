@@ -137,9 +137,6 @@ USAGE
         lddist = args.lddisttype
         print("Will use ld distance type %s " % lddist)
         
-        error_rate = args.error_rate
-        print("Will use error rate %s: "  % error_rate)
-        
         lookback = args.lookback
         print("Will %s generations up/back: " % lookback)
         
