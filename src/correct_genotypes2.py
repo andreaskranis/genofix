@@ -14,14 +14,14 @@ from pgmpy.inference import VariableElimination, BeliefPropagation
 from tqdm import tqdm
 
 import bayesnet
-import logoutput
-from logoutput import debugutil
+#import logoutput
+#from logoutput import debugutil
 from bayesnet.model import BayesPedigreeNetworkModel, _default_mendelprobs, _default_alleleprobs
 from bayesnet.result import ResultSingleInfer, ResultPairInfer
 import numpy as np
 import pandas as pd
 from pedigree.pedigree_dag import PedigreeDAG
-from scipy.stats import rankdata, boxcox
+from scipy.stats import rankdata #, boxcox
 import matplotlib.pyplot as plt
 import seaborn as sns
 import multiprocessing
