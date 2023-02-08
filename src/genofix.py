@@ -171,10 +171,10 @@ USAGE
         chromosomes = sorted([int(chro) for chro in genome.chroms.keys()])
         print("chromosomes: %s " % chromosomes)
         
-        if input_file.endswith(".gzip"):
+        if input_file.endswith(".gz"):
             genotypes_with_errors = pd.read_csv(input_file, sep=" ", compression='gzip', header=0, index_col=0, engine="c", dtype={snp:np.uint8 for snp in snps}, low_memory=False, memory_map=True)
-        else 
-            genotypes_with_errors = pd.read_csv(input_file, sep=" ", compression='gzip', header=0, index_col=0, engine="c", dtype={snp:np.uint8 for snp in snps}, low_memory=False, memory_map=True)
+        else :
+            genotypes_with_errors = pd.read_csv(input_file, sep=" ", header=0, index_col=0, engine="c", dtype={snp:np.uint8 for snp in snps}, low_memory=False, memory_map=True)
         
         print("loaded genome matrix of size %s animals by %s snps" % genotypes_with_errors.shape)
         if first_n_snps is not None:
