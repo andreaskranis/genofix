@@ -51,7 +51,11 @@ class CLIError(Exception):
         return self.msg
 
 def main(argv=None): # IGNORE:C0111
-    '''Command line options.'''
+    '''
+    @TODO specify preindex empirical as parameter
+    @TODO specify list of indifividuals in gens.txt to correct
+    @TODO correct individuals with parents first.
+    '''
 
     if argv is None:
         argv = sys.argv
@@ -89,7 +93,6 @@ USAGE
         parser.add_argument("-d", "--lddisttype", dest="lddisttype",  default='global', type=str, choices=['none', 'global', 'local'], help="ld distance calculation type to use")
         parser.add_argument("-b", "--lookback", dest="lookback", type=int, default=2,  help="generations to look up/back")
         parser.add_argument("-t", "--tiethreshold", dest="tiethreshold", type=float, default=0.05,  help="error tolerance between probabilies to declare a tie")
-        parser.add_argument("-e", "--errorrate", dest="error_rate", type=float, default=1,  help="simulated error rate")
         parser.add_argument("-i", "--input", dest="input", type=str, required=False,  help="genotype input file (SSV file, first column int ids, first row snp ids)")
         parser.add_argument("-n", "--firstnsnps", dest="first_n_snps", type=int, required=False, default=None,  help="only use the first n snps of the genome")
         parser.add_argument("-q", "--initquantilefilter", dest="initquantilefilter", type=float, required=False, default=0.9,  help="initial filter to select upper quantile in error likelihood dist")
@@ -168,7 +171,11 @@ USAGE
         chromosomes = sorted([int(chro) for chro in genome.chroms.keys()])
         print("chromosomes: %s " % chromosomes)
         
-        genotypes_with_errors = pd.read_csv(input_file, sep=" ", compression='gzip', header=0, index_col=0, engine="c", dtype={snp:np.uint8 for snp in snps}, low_memory=False, memory_map=True)
+        if input_file.endswith(".gzip"):
+            genotypes_with_errors = pd.read_csv(input_file, sep=" ", compression='gzip', header=0, index_col=0, engine="c", dtype={snp:np.uint8 for snp in snps}, low_memory=False, memory_map=True)
+        else 
+            genotypes_with_errors = pd.read_csv(input_file, sep=" ", compression='gzip', header=0, index_col=0, engine="c", dtype={snp:np.uint8 for snp in snps}, low_memory=False, memory_map=True)
+        
         print("loaded genome matrix of size %s animals by %s snps" % genotypes_with_errors.shape)
         if first_n_snps is not None:
             genotypes_with_errors = genotypes_with_errors.iloc[:,0:first_n_snps]
