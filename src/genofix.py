@@ -27,9 +27,10 @@ import pandas as pd
 import quickgsim as gsim
 from collections import Counter, defaultdict
 import numpy as np
-from correct_genotypes2 import CorrectGenotypes
+from correct_genotypes3 import CorrectGenotypes
 from typing import Tuple, List, Dict, Union
 import multiprocessing
+import pickle
 
 __all__: List[str] = []
 __version__ = 0.1
@@ -101,6 +102,7 @@ USAGE
         parser.add_argument("-M", "--minimum_cluster_size", dest="minimum_cluster_size", type=float, required=False,  help="set to turn on ld partitioning of pedigree (recomend 10-15 clusters with min 150)")
         parser.add_argument("-E", "--elimination_order", dest="elimination_order", type=str, required=False, default="weightedminfill", choices=["weightedminfill","minneighbors","minweight","minfill"], help="elimination order in mendel prob calculation")
         parser.add_argument("-T", "--threads", dest="threads", type=int, required=False, default=multiprocessing.cpu_count(),  help="weight of empirical vs collected medelian error when ranking snps by error probability")
+        parser.add_argument('-P', '--empC', dest="empC", required=True, help="prior empirical disribution for ld snps")
         parser.add_argument('-V', '--version', action='version', version=program_version_message)
         
         # Process arguments
@@ -112,6 +114,10 @@ USAGE
         pedigree = PedigreeDAG.from_file(args.pedigree)
         elimination_order = str(args.elimination_order)
         first_n_snps  = args.first_n_snps
+        
+        empCFile = args.empC
+        
+        empC = pickle.load(empCFile)
         
         threshold_singles = float(args.threshold_singles)
         threshold_pairs = float(args.threshold_pairs)
@@ -200,7 +206,7 @@ USAGE
         for i, snps in enumerate(chunks):
             print("correcting chunk %s of %s with %s snps in chunk" % ( i, len(chunks), len(snps)))
             result = c.correctMatrix(genotypes_with_errors.loc[:,snps], 
-                                                            pedigree, 
+                                                            pedigree, empC,
                                                             threshold_pairs, threshold_singles,
                                                             lddist, back=lookback, tiethreshold=tiethreshold, 
                                                             init_filter_p=init_filter_p, filter_e=filter_e,

@@ -505,10 +505,9 @@ class CorrectGenotypes(object):
     #     return(None)
     #
 
-    def correctMatrix(self, genotypes: pd.DataFrame, pedigree:PedigreeDAG, 
+    def correctMatrix(self, genotypes: pd.DataFrame, pedigree:PedigreeDAG, empC:JointAllellicDistribution,
                       threshold_pair, 
                       threshold_single,
-                      empC=None, # empirical stats 
                       back=2,
                       init_filter_p=0.9,
                       filter_e=0.7,
