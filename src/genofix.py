@@ -92,7 +92,6 @@ USAGE
         parser.add_argument("-s", "--snps", dest="snps", required=True, help="snp map file")
         parser.add_argument("-l", "--thresholdsingles", dest="threshold_singles", type=float, default=0.7, help="threshold prob for singles")
         parser.add_argument("-m", "--thresholdpairs", dest="threshold_pairs", type=float, default=0.5, help="threshold prob for mating pairs")
-        parser.add_argument("-w", "--surroundsnps", dest="surround_size", type=int, default=3, help="number of snps either side of a snp to create window for empirical")
         parser.add_argument("-o", "--outdir", dest="outdir", required=True , help="outputdir")
         parser.add_argument("-d", "--lddisttype", dest="lddisttype",  default='global', type=str, choices=['none', 'global', 'local'], help="ld distance calculation type to use")
         parser.add_argument("-b", "--lookback", dest="lookback", type=int, default=2,  help="generations to look up/back")
@@ -122,7 +121,6 @@ USAGE
         
         threshold_singles = float(args.threshold_singles)
         threshold_pairs = float(args.threshold_pairs)
-        surround_size = int(args.surround_size)
         tiethreshold = float(args.tiethreshold)
         genomein = pd.read_csv(args.snps, sep=' ', names = ["chrom", "snpid", "cm", "pos"], engine='c',low_memory=False, memory_map=True)
         init_filter_p = float(args.initquantilefilter) 
@@ -208,7 +206,7 @@ USAGE
                 continue
             print("Chromosome %s with %s snps" % (chromosome, len(snpsOnchrom)))
             empC = pickle.load(gzip.open("%s/%s/empiricalIndex.idx.gz" % (empCFile,chromosome)))
-            
+            surround_size = empC.surround_size
             found_snps = [x for x in snps if x in g_cache.snps and x in chromosome2snp[chromosome]]
             chunks = chunk(found_snps, 1000, (surround_size*2)+1, (surround_size*2)+1)
             for i, snps in enumerate(chunks):
