@@ -217,7 +217,7 @@ USAGE
                 print("chromosome skipped %s" % chromosome)
                 continue
             print("Chromosome %s with %s snps" % (chromosome, len(snpsOnchrom)))
-            empC = pickle.load(gzip.open("%s/%s/empiricalIndex.idx.gz") % (empCFile,chromosome))
+            empC = pickle.load(gzip.open("%s/%s/empiricalIndex.idx.gz" % (empCFile,chromosome)))
             
             found_snps = [x for x in snps if x in g_cache.snps and x in chromosome2snp[chromosome]]
             chunks = chunk(found_snps, 1000, (surround_size*2)+1, (surround_size*2)+1)
