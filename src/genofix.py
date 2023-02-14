@@ -230,7 +230,7 @@ USAGE
                 
                 result = c.correctMatrix(genotypes, pedigree, empC,
                                             threshold_pairs, threshold_singles,
-                                            lddist, back=lookback, tiethreshold=tiethreshold, 
+                                            back=lookback, tiethreshold=tiethreshold, 
                                             init_filter_p=init_filter_p, filter_e=filter_e,
                                             weight_empirical=weight_empirical,partition_pedigree=partition_pedigree,
                                             threads=threads, DEBUGDIR=out_dir)
