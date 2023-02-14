@@ -55,7 +55,6 @@ class CorrectGenotypes(object):
     def __init__(self, surround_size=4, chromosome2snp=None, min_cluster_size=100, elimination_order="MinNeighbors"):
         self.chromosome2snp=chromosome2snp
         self.surround_size=surround_size
-        self.min_cluster_size=min_cluster_size
         self.elimination_order = elimination_order
     
     @staticmethod

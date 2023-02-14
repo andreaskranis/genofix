@@ -102,7 +102,6 @@ USAGE
         parser.add_argument("-q", "--initquantilefilter", dest="initquantilefilter", type=float, required=False, default=0.9,  help="initial filter to select upper quantile in error likelihood dist")
         parser.add_argument("-Q", "--filter_e", dest="filter_e", type=float, required=False, default=0.8,  help="filter to select upper quantile to exclude from empirical ld calculation")
         parser.add_argument("-W", "--weightempirical", dest="weight_empirical", type=float, required=False, default=2,  help="weight of empirical vs collected medelian error when ranking snps by error probability")
-        parser.add_argument("-M", "--minimum_cluster_size", dest="minimum_cluster_size", type=float, required=False,  help="set to turn on ld partitioning of pedigree (recomend 10-15 clusters with min 150)")
         parser.add_argument("-E", "--elimination_order", dest="elimination_order", type=str, required=False, default="weightedminfill", choices=["weightedminfill","minneighbors","minweight","minfill"], help="elimination order in mendel prob calculation")
         parser.add_argument("-T", "--threads", dest="threads", type=int, required=False, default=multiprocessing.cpu_count(),  help="weight of empirical vs collected medelian error when ranking snps by error probability")
         parser.add_argument('-P', '--empC', dest="empC", required=True, help="folder with prior empirical disribution for ld snps /chr/*.idx.gz")
@@ -131,15 +130,6 @@ USAGE
         filter_e = float(args.filter_e)
         threads = int(args.threads)
         
-        if args.minimum_cluster_size is not None:
-            minimum_cluster_size = int(args.minimum_cluster_size)
-            partition_pedigree = True
-            print("partitions for ld with min size of %s" % minimum_cluster_size)
-        else:
-            partition_pedigree = False
-            minimum_cluster_size = None
-            print("partitions for ld disabled")
-
         genotypes_input_file = args.genotypes_input_file
         
         print("building cache index from %s: this may take some time" % genotypes_input_file)
@@ -195,7 +185,7 @@ USAGE
         #allelefrq = pd.DataFrame(np.array([genomematrix[snp].value_counts().values for snp in genomematrix.columns]), index=genomematrix.columns, columns=["0","1","2"])
         print("chromosomes found: %s " % chromosomes) 
              
-        c = CorrectGenotypes(chromosome2snp=chromosome2snp, surround_size=surround_size, min_cluster_size=minimum_cluster_size, elimination_order=elimination_order)
+        c = CorrectGenotypes(chromosome2snp=chromosome2snp, surround_size=surround_size, elimination_order=elimination_order)
         
         print("starting correct matrix") 
         
@@ -232,7 +222,7 @@ USAGE
                                             threshold_pairs, threshold_singles,
                                             back=lookback, tiethreshold=tiethreshold, 
                                             init_filter_p=init_filter_p, filter_e=filter_e,
-                                            weight_empirical=weight_empirical,partition_pedigree=partition_pedigree,
+                                            weight_empirical=weight_empirical,
                                             threads=threads, DEBUGDIR=out_dir)
                 if i == 0:
                     corrected_genotype.loc[:,snps] = result
