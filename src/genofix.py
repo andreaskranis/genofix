@@ -32,6 +32,8 @@ from typing import Tuple, List, Dict, Union
 import multiprocessing
 import pickle
 
+from gfutils.gensrandaccess import GensCache
+
 __all__: List[str] = []
 __version__ = 0.1
 __date__ = '2021-07-26'
@@ -94,7 +96,7 @@ USAGE
         parser.add_argument("-d", "--lddisttype", dest="lddisttype",  default='global', type=str, choices=['none', 'global', 'local'], help="ld distance calculation type to use")
         parser.add_argument("-b", "--lookback", dest="lookback", type=int, default=2,  help="generations to look up/back")
         parser.add_argument("-t", "--tiethreshold", dest="tiethreshold", type=float, default=0.05,  help="error tolerance between probabilies to declare a tie")
-        parser.add_argument("-i", "--input", dest="input", type=str, required=False,  help="genotype input file (SSV file, first column int ids, first row snp ids)")
+        parser.add_argument("-i", "--genotypes_input_file", dest="genotypes_input_file", type=str, required=True,  help="genotype input file (SSV file, first column int ids, first row snp ids)")
         parser.add_argument("-n", "--firstnsnps", dest="first_n_snps", type=int, required=False, default=None,  help="only use the first n snps of the genome")
         parser.add_argument("-q", "--initquantilefilter", dest="initquantilefilter", type=float, required=False, default=0.9,  help="initial filter to select upper quantile in error likelihood dist")
         parser.add_argument("-Q", "--filter_e", dest="filter_e", type=float, required=False, default=0.8,  help="filter to select upper quantile to exclude from empirical ld calculation")
@@ -102,7 +104,7 @@ USAGE
         parser.add_argument("-M", "--minimum_cluster_size", dest="minimum_cluster_size", type=float, required=False,  help="set to turn on ld partitioning of pedigree (recomend 10-15 clusters with min 150)")
         parser.add_argument("-E", "--elimination_order", dest="elimination_order", type=str, required=False, default="weightedminfill", choices=["weightedminfill","minneighbors","minweight","minfill"], help="elimination order in mendel prob calculation")
         parser.add_argument("-T", "--threads", dest="threads", type=int, required=False, default=multiprocessing.cpu_count(),  help="weight of empirical vs collected medelian error when ranking snps by error probability")
-        parser.add_argument('-P', '--empC', dest="empC", required=True, help="prior empirical disribution for ld snps")
+        parser.add_argument('-P', '--empC', dest="empC", required=True, help="folder with prior empirical disribution for ld snps /chr/*.idx.gz")
         parser.add_argument('-V', '--version', action='version', version=program_version_message)
         
         # Process arguments
@@ -112,12 +114,11 @@ USAGE
         pathlib.Path(out_dir).mkdir(parents=True, exist_ok=True)
         
         pedigree = PedigreeDAG.from_file(args.pedigree)
+        
         elimination_order = str(args.elimination_order)
         first_n_snps  = args.first_n_snps
         
         empCFile = args.empC
-        
-        empC = pickle.load(empCFile)
         
         threshold_singles = float(args.threshold_singles)
         threshold_pairs = float(args.threshold_pairs)
@@ -138,8 +139,13 @@ USAGE
             minimum_cluster_size = None
             print("partitions for ld disabled")
 
-        input_file = args.input
+        genotypes_input_file = args.genotypes_input_file
         
+        print("building cache index from %s: this may take some time" % genotypes_input_file)
+        g_cache = GensCache(genotypes_input_file, header=True)
+        print("DONE !!! building cache index from %s" % genotypes_input_file)
+        print("Detected %s individuals and %s snps in input file" % (len(g_cache.all_ids), len(g_cache.snps)-1))
+    
         lddist = args.lddisttype
         print("Will use ld distance type %s " % lddist)
         
@@ -174,15 +180,15 @@ USAGE
         chromosomes = sorted([int(chro) for chro in genome.chroms.keys()])
         print("chromosomes: %s " % chromosomes)
         
-        if input_file.endswith(".gz"):
-            genotypes_with_errors = pd.read_csv(input_file, sep=" ", compression='gzip', header=0, index_col=0, engine="c", dtype={snp:np.uint8 for snp in snps}, low_memory=False, memory_map=True)
-        else :
-            genotypes_with_errors = pd.read_csv(input_file, sep=" ", header=0, index_col=0, engine="c", dtype={snp:np.uint8 for snp in snps}, low_memory=False, memory_map=True)
+#        if input_file.endswith(".gz"):
+#            genotypes_with_errors = pd.read_csv(input_file, sep=" ", compression='gzip', header=0, index_col=0, engine="c", dtype={snp:np.uint8 for snp in snps}, low_memory=False, memory_map=True)
+#        else :
+#            genotypes_with_errors = pd.read_csv(input_file, sep=" ", header=0, index_col=0, engine="c", dtype={snp:np.uint8 for snp in snps}, low_memory=False, memory_map=True)
         
-        print("loaded genome matrix of size %s animals by %s snps" % genotypes_with_errors.shape)
-        if first_n_snps is not None:
-            genotypes_with_errors = genotypes_with_errors.iloc[:,0:first_n_snps]
-            print("reduced genome matrix to size %s animals by %s snps" % genotypes_with_errors.shape)
+        #print("loaded genome matrix of size %s animals by %s snps" % genotypes_with_errors.shape)
+        #if first_n_snps is not None:
+        #    genotypes_with_errors = genotypes_with_errors.iloc[:,0:first_n_snps]
+        #    print("reduced genome matrix to size %s animals by %s snps" % genotypes_with_errors.shape)
     
          
         #allelefrq = pd.DataFrame(np.array([genomematrix[snp].value_counts().values for snp in genomematrix.columns]), index=genomematrix.columns, columns=["0","1","2"])
@@ -192,31 +198,46 @@ USAGE
         
         print("starting correct matrix") 
         
-        counter = Counter(genotypes_with_errors.to_numpy().flatten())
-        print("pre-corrected array: %s" % counter)
-        
         tic = int(time.time())
-        corrected_genotype = pd.DataFrame(data=np.full(genotypes_with_errors.shape, 10, dtype=np.uint8),index=genotypes_with_errors.index, columns=genotypes_with_errors.columns)
+        corrected_genotype = pd.DataFrame(data=g_cache.getMatrix(list(g_cache.all_ids)), 
+                                         index=list(g_cache.all_ids),
+                                         columns=g_cache.snps)
+        
+        counter = Counter(corrected_genotype.to_numpy().flatten())
+        print("pre-corrected array: %s" % counter)
         
         def chunk(l, n, b=0, m=2):
             n = max(1, n)
             groups = filter( lambda x: len(x) > m, (l[i:] if len(l)-(i+n+b) < m else l[i:i+n+b] for i in range(0, len(l), n)))
             return list(groups)
-        chunks = chunk(genotypes_with_errors.columns, 1000, (surround_size*2)+1, (surround_size*2)+1)
-        for i, snps in enumerate(chunks):
-            print("correcting chunk %s of %s with %s snps in chunk" % ( i, len(chunks), len(snps)))
-            result = c.correctMatrix(genotypes_with_errors.loc[:,snps], 
-                                                            pedigree, empC,
-                                                            threshold_pairs, threshold_singles,
-                                                            lddist, back=lookback, tiethreshold=tiethreshold, 
-                                                            init_filter_p=init_filter_p, filter_e=filter_e,
-                                                            weight_empirical=weight_empirical,partition_pedigree=partition_pedigree,
-                                                            threads=threads, DEBUGDIR=out_dir)
-            if i == 0:
-                corrected_genotype.loc[:,snps] = result
-            else :
-                corrected_genotype.loc[:,snps[surround_size+1:]] = result[surround_size+1:]
+        
+        for chromosome, snpsOnchrom in sorted(chromosome2snp.items(), key=lambda x:len(x)): #EXCLUDE ZERO @TODO
+            if chromosome == "0" or chromosome == "Z" :
+                print("chromosome skipped %s" % chromosome)
+                continue
+            print("Chromosome %s with %s snps" % (chromosome, len(snpsOnchrom)))
+            empC = pickle.load("%s/%s/empiricalIndex.idx.gz" % (empCFile,chromosome))
             
+            found_snps = [x for x in snps if x in g_cache.snps and x in chromosome2snp[chromosome]]
+            chunks = chunk(found_snps, 1000, (surround_size*2)+1, (surround_size*2)+1)
+            for i, snps in enumerate(chunks):
+                print("correcting chunk %s of %s with %s snps in chunk" % ( i, len(chunks), len(snps)))
+                
+                genotypes = pd.DataFrame(data=g_cache.getMatrix(list(g_cache.all_ids)), 
+                                         index=list(g_cache.all_ids),
+                                         columns=g_cache.snps).loc[:,found_snps]
+                
+                result = c.correctMatrix(genotypes, pedigree, empC,
+                                            threshold_pairs, threshold_singles,
+                                            lddist, back=lookback, tiethreshold=tiethreshold, 
+                                            init_filter_p=init_filter_p, filter_e=filter_e,
+                                            weight_empirical=weight_empirical,partition_pedigree=partition_pedigree,
+                                            threads=threads, DEBUGDIR=out_dir)
+                if i == 0:
+                    corrected_genotype.loc[:,snps] = result
+                else :
+                    corrected_genotype.loc[:,snps[surround_size+1:]] = result[surround_size+1:]
+        
         toc = int(time.time())
         print("done correct matrix in %s minutes" % ((toc-tic)/60) )            
         corrected_genotype.to_csv("%s/simulatedgenome_corrected_errors_threshold.ssv" % (out_dir), sep=" ")
