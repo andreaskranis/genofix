@@ -30,14 +30,7 @@ import logoutput.stats
 
 _DEBUG_NO_CHANGE = False
 
-def getEmpProbs(observedstatesevidence,SNP_id) :
-    current = multiprocessing.current_process()
-    indexemp = current.indexemp
-    empiricalcount = indexemp.getCountTable(observedstatesevidence,SNP_id)
-    if np.nansum(empiricalcount) > 0:
-        return(np.divide(empiricalcount,np.nansum(empiricalcount)))
-    else :
-        return(empiricalcount)
+
 
 def initializerEmp(empC):
     multiprocessing.current_process().indexemp = empC.copy()
@@ -67,6 +60,16 @@ class CorrectGenotypes(object):
     def __init__(self, chromosome2snp=None, min_cluster_size=100, elimination_order="MinNeighbors"):
         self.chromosome2snp=chromosome2snp
         self.elimination_order = elimination_order
+    
+    @staticmethod
+    def getEmpProbs(observedstatesevidence,SNP_id) :
+        current = multiprocessing.current_process()
+        indexemp = current.indexemp
+        empiricalcount = indexemp.getCountTable(observedstatesevidence,SNP_id)
+        if np.nansum(empiricalcount) > 0:
+            return(np.divide(empiricalcount,np.nansum(empiricalcount)))
+        else :
+            return(empiricalcount)
     
     @staticmethod
     def mendelProbsSingle(kid:int, back:int, elimination_order="MinNeighbors"):
