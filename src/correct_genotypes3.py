@@ -593,9 +593,9 @@ class CorrectGenotypes(object):
                     empvalues = list()
                     print("adjusting rank by lnprobs")
                     for kid in tqdm(corrected_genotype.index):
-                        for j, SNP_id in enumerate(corrected_genotype.columns):
+                        for j, SNP_id in enumerate([x for x in corrected_genotype.columns if x in empC.snp_ordered]):
                             observed_state = corrected_genotype.loc[kid,SNP_id]
-                            windowSNPs = [x for x in empC.getWindow(SNP_id) if x in corrected_genotype.columns]
+                            windowSNPs = [x for x in empC.getWindow(SNP_id) if x in corrected_genotype.columns] # we check if these snps are in the current window
                             observedstatesevidence = {snpid:corrected_genotype.loc[kid,snpid] for snpid in windowSNPs}
                             if observed_state in [0,1,2]:
                                 empiricalcount = empC.getCountTable(observedstatesevidence,SNP_id)
