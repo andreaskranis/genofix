@@ -604,17 +604,18 @@ class CorrectGenotypes(object):
                     with concurrent.futures.ProcessPoolExecutor(max_workers=threads, 
                                             initializer=initializer,
                                             initargs=(corrected_genotype,pedigree, probs_errors)) as executor:
-                        for kid in corrected_genotype.index:
-                            for j, SNP_id in enumerate([x for x in corrected_genotype.columns if x in empC.snp_ordered]):
+                        commonSNPs = set(empC.snp_ordered).intersection(set(corrected_genotype.columns)) # in both empirical index and array
+                        for kid in tqdm(corrected_genotype.index):
+                            for j, SNP_id in enumerate([x for x in corrected_genotype.columns]):
                                 observed_state = corrected_genotype.loc[kid,SNP_id]
-                                if observed_state in [0,1,2]: # don't bother if its a 9
+                                if observed_state in [0,1,2] and SNP_id in commonSNPs: # don't bother if its a 9 or not in the empirical
                                     windowSNPs = [x for x in empC.getWindow(SNP_id)] # we check if these snps are in the current window
-                                    observedstatesevidence = {snpid:corrected_genotype.loc[kid,snpid] if snpid in corrected_genotype.columns else 9 for snpid in windowSNPs}
-                                    futures[tuple([kid,SNP_id])] = executor.submit(getEmpProbs, [observedstatesevidence,SNP_id])
+                                    observedstatesevidence = {snpid:corrected_genotype.loc[kid,snpid] if snpid in commonSNPs else 9 for snpid in windowSNPs}
+                                    futures[tuple([kid,SNP_id, j])] = executor.submit(getEmpProbs, [observedstatesevidence,SNP_id])
                         
                         print("waiting on %s queued jobs with %s threads" % (len(futures), threads))
                         with tqdm(total=len(futures)) as pbar:
-                            for (kid, SNP_id), future in concurrent.futures.as_completed(futures) :
+                            for (kid, SNP_id, j), future in concurrent.futures.as_completed(futures) :
                                 pbar.update(1)
                                 e = future.exception()
                                 if e is not None:
