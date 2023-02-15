@@ -589,21 +589,26 @@ class CorrectGenotypes(object):
                 plt.savefig("%s/distribution_of_sum_error_ranks_histogram_preld.png" % DEBUGDIR, dpi=300)
                 plt.clf()
                 
-                def getEmpProbs (observedstatesevidence,SNP_id) :
-                    empiricalcount = empC.getCountTable(observedstatesevidence,SNP_id)
+                def getEmpProbs(observedstatesevidence,SNP_id) :
+                    current = multiprocessing.current_process()
+                    indexemp = current.indexemp
+                    empiricalcount = indexemp.getCountTable(observedstatesevidence,SNP_id)
                     if np.nansum(empiricalcount) > 0:
                         return(np.divide(empiricalcount,np.nansum(empiricalcount)))
                     else :
                         return(empiricalcount)
-                        
+                
+                def initializerEmp(empC):
+                    multiprocessing.current_process().indexemp = empC.copy()
+      
                 #TODO this is taking ages to run!!!
                 if empC is not None:
                     empvalues = list()
                     print("adjusting rank by lnprobs")
                     futures = {}
-                    with concurrent.futures.ProcessPoolExecutor(max_workers=threads, 
-                                            initializer=initializer,
-                                            initargs=(corrected_genotype,pedigree, probs_errors)) as executor:
+                    with concurrent.futures.ProcessPoolExecutor(max_workers=threads,
+                                            initializer=initializerEmp,
+                                            initargs=(empC)) as executor:
                         commonSNPs = set(empC.snp_ordered).intersection(set(corrected_genotype.columns)) # in both empirical index and array
                         for kid in tqdm(corrected_genotype.index):
                             for j, SNP_id in enumerate([x for x in corrected_genotype.columns]):
