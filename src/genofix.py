@@ -215,6 +215,8 @@ USAGE
                 genotypes = pd.DataFrame(data=g_cache.getMatrix(list(g_cache.all_ids)), 
                                          index=list(g_cache.all_ids),
                                          columns=g_cache.snps).loc[:,found_snps]
+                print("Loaded matrix %s" % str(genotypes.shape))
+                print(genotypes)
                 
                 result = c.correctMatrix(genotypes, pedigree, empC,
                                             threshold_pairs, threshold_singles,
