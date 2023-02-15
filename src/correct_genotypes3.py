@@ -30,6 +30,18 @@ import logoutput.stats
 
 _DEBUG_NO_CHANGE = False
 
+def getEmpProbs(observedstatesevidence,SNP_id) :
+    current = multiprocessing.current_process()
+    indexemp = current.indexemp
+    empiricalcount = indexemp.getCountTable(observedstatesevidence,SNP_id)
+    if np.nansum(empiricalcount) > 0:
+        return(np.divide(empiricalcount,np.nansum(empiricalcount)))
+    else :
+        return(empiricalcount)
+
+def initializerEmp(empC):
+    multiprocessing.current_process().indexemp = empC.copy()
+
 def initializer(corrected_genotype_c, pedigree_c, probs_errors, cacheIn=None):
     multiprocessing.current_process().genotypes = corrected_genotype_c.copy()
     multiprocessing.current_process().pedigree = PedigreeDAG(pedigree_c)
@@ -589,18 +601,6 @@ class CorrectGenotypes(object):
                 plt.savefig("%s/distribution_of_sum_error_ranks_histogram_preld.png" % DEBUGDIR, dpi=300)
                 plt.clf()
                 
-                def getEmpProbs(observedstatesevidence,SNP_id) :
-                    current = multiprocessing.current_process()
-                    indexemp = current.indexemp
-                    empiricalcount = indexemp.getCountTable(observedstatesevidence,SNP_id)
-                    if np.nansum(empiricalcount) > 0:
-                        return(np.divide(empiricalcount,np.nansum(empiricalcount)))
-                    else :
-                        return(empiricalcount)
-                
-                def initializerEmp(empC):
-                    multiprocessing.current_process().indexemp = empC.copy()
-      
                 #TODO this is taking ages to run!!!
                 if empC is not None:
                     empvalues = list()
