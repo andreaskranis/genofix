@@ -610,8 +610,8 @@ class CorrectGenotypes(object):
                                 if observed_state in [0,1,2]: # don't bother if its a 9
                                     windowSNPs = [x for x in empC.getWindow(SNP_id)] # we check if these snps are in the current window
                                     observedstatesevidence = {snpid:corrected_genotype.loc[kid,snpid] if snpid in corrected_genotype.columns else 9 for snpid in windowSNPs}
-                                    futures[tuple(kid,SNP_id)] = executor.submit(getEmpProbs, [observedstatesevidence,SNP_id])
-                                    
+                                    futures[tuple([kid,SNP_id])] = executor.submit(getEmpProbs, [observedstatesevidence,SNP_id])
+                        
                         print("waiting on %s queued jobs with %s threads" % (len(futures), threads))
                         with tqdm(total=len(futures)) as pbar:
                             for (kid, SNP_id), future in concurrent.futures.as_completed(futures) :
