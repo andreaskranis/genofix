@@ -589,24 +589,46 @@ class CorrectGenotypes(object):
                 plt.savefig("%s/distribution_of_sum_error_ranks_histogram_preld.png" % DEBUGDIR, dpi=300)
                 plt.clf()
                 
+                def getEmpProbs (observedstatesevidence,SNP_id) :
+                    empiricalcount = empC.getCountTable(observedstatesevidence,SNP_id)
+                    if np.nansum(empiricalcount) > 0:
+                        return(np.divide(empiricalcount,np.nansum(empiricalcount)))
+                    else :
+                        return(empiricalcount)
+                        
+                #TODO this is taking ages to run!!!
                 if empC is not None:
                     empvalues = list()
                     print("adjusting rank by lnprobs")
-                    for kid in tqdm(corrected_genotype.index):
-                        for j, SNP_id in enumerate([x for x in corrected_genotype.columns if x in empC.snp_ordered]):
-                            observed_state = corrected_genotype.loc[kid,SNP_id]
-                            windowSNPs = [x for x in empC.getWindow(SNP_id)] # we check if these snps are in the current window
-                            observedstatesevidence = {snpid:corrected_genotype.loc[kid,snpid] if snpid in corrected_genotype.columns else 9 for snpid in windowSNPs}
-                            if observed_state in [0,1,2]:
-                                empiricalcount = empC.getCountTable(observedstatesevidence,SNP_id)
-                                if np.nansum(empiricalcount) > 0:
-                                    prob_states_normalised = np.divide(empiricalcount,np.nansum(empiricalcount))
+                    futures = {}
+                    with concurrent.futures.ProcessPoolExecutor(max_workers=threads, 
+                                            initializer=initializer,
+                                            initargs=(corrected_genotype,pedigree, probs_errors)) as executor:
+                        for kid in corrected_genotype.index:
+                            for j, SNP_id in enumerate([x for x in corrected_genotype.columns if x in empC.snp_ordered]):
+                                observed_state = corrected_genotype.loc[kid,SNP_id]
+                                if observed_state in [0,1,2]: # don't bother if its a 9
+                                    windowSNPs = [x for x in empC.getWindow(SNP_id)] # we check if these snps are in the current window
+                                    observedstatesevidence = {snpid:corrected_genotype.loc[kid,snpid] if snpid in corrected_genotype.columns else 9 for snpid in windowSNPs}
+                                    futures[tuple(kid,SNP_id)] = executor.submit(getEmpProbs, [observedstatesevidence,SNP_id])
+                                    
+                        print("waiting on %s queued jobs with %s threads" % (len(futures), threads))
+                        with tqdm(total=len(futures)) as pbar:
+                            for (kid, SNP_id), future in concurrent.futures.as_completed(futures) :
+                                pbar.update(1)
+                                e = future.exception()
+                                if e is not None:
+                                    print(repr(e))
+                                    raise(e)
+                                prob_states_normalised  = future.result()
+                                if np.nansum(prob_states_normalised) > 0:
                                     probs[kid][j] = np.nanmean([prob_states_normalised,probs[kid][j]],0,dtype=float)
                                     empdiff = np.nanmax(prob_states_normalised)-prob_states_normalised[observed_state]
                                     empvalues.append(empdiff)
                                     #probs_errors[kid][j] = np.nanmean([empdiff,probs_errors[kid][j]], 0, dtype=float)
                                     #probs_errors[kid][j] = np.multiply(empdiff,probs_errors[kid][j])
                                     probs_errors.loc[kid,SNP_id] = np.nanmean([probs_errors.loc[kid,SNP_id],empdiff*weight_empirical],0,dtype=float)
+                                del future
                     
                     maxsumprobs = np.nanmax(probs_errors)
                     probs_errors = np.divide(probs_errors,maxsumprobs)
