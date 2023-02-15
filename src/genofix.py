@@ -183,7 +183,7 @@ USAGE
         #allelefrq = pd.DataFrame(np.array([genomematrix[snp].value_counts().values for snp in genomematrix.columns]), index=genomematrix.columns, columns=["0","1","2"])
         print("chromosomes found: %s " % chromosomes) 
              
-        c = CorrectGenotypes(chromosome2snp=chromosome2snp, surround_size=surround_size, elimination_order=elimination_order)
+        c = CorrectGenotypes(chromosome2snp=chromosome2snp, elimination_order=elimination_order)
         
         print("starting correct matrix") 
         
