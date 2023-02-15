@@ -619,7 +619,7 @@ class CorrectGenotypes(object):
                                 if observed_state in [0,1,2] and SNP_id in commonSNPs: # don't bother if its a 9 or not in the empirical
                                     windowSNPs = [x for x in empC.getWindow(SNP_id)] # we check if these snps are in the current window
                                     observedstatesevidence = {snpid:corrected_genotype.loc[kid,snpid] if snpid in commonSNPs else 9 for snpid in windowSNPs}
-                                    futures[tuple([kid,SNP_id, j])] = executor.submit(getEmpProbs, [observedstatesevidence,SNP_id])
+                                    futures[tuple([kid,SNP_id, j])] = executor.submit(self.getEmpProbs, [observedstatesevidence,SNP_id])
                         
                         print("waiting on %s queued jobs with %s threads" % (len(futures), threads))
                         with tqdm(total=len(futures)) as pbar:
