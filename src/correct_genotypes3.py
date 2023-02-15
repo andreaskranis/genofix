@@ -611,7 +611,7 @@ class CorrectGenotypes(object):
                     futures = {}
                     with concurrent.futures.ProcessPoolExecutor(max_workers=threads,
                                             initializer=initializerEmp,
-                                            initargs=(empC)) as executor:
+                                            initargs=(empC,)) as executor:
                         commonSNPs = set(empC.snp_ordered).intersection(set(corrected_genotype.columns)) # in both empirical index and array
                         for kid in tqdm(corrected_genotype.index):
                             for j, SNP_id in enumerate([x for x in corrected_genotype.columns]):
