@@ -52,9 +52,8 @@ def accumulateCombinations(states, length, current=0, thisarray=None):
 
 class CorrectGenotypes(object):
    
-    def __init__(self, surround_size=4, chromosome2snp=None, min_cluster_size=100, elimination_order="MinNeighbors"):
+    def __init__(self, chromosome2snp=None, min_cluster_size=100, elimination_order="MinNeighbors"):
         self.chromosome2snp=chromosome2snp
-        self.surround_size=surround_size
         self.elimination_order = elimination_order
     
     @staticmethod
@@ -596,7 +595,8 @@ class CorrectGenotypes(object):
                     for kid in tqdm(corrected_genotype.index):
                         for j, SNP_id in enumerate(corrected_genotype.columns):
                             observed_state = corrected_genotype.loc[kid,SNP_id]
-                            observedstatesevidence = {snpid:corrected_genotype.loc[kid,snpid] for snpid in empC.getWindow(SNP_id)}
+                            windowSNPs = [x for x in empC.getWindow(SNP_id) if x in corrected_genotype.columns]
+                            observedstatesevidence = {snpid:corrected_genotype.loc[kid,snpid] for snpid in windowSNPs}
                             if observed_state in [0,1,2]:
                                 empiricalcount = empC.getCountTable(observedstatesevidence,SNP_id)
                                 if np.nansum(empiricalcount) > 0:
