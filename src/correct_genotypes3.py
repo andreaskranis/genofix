@@ -592,15 +592,16 @@ class CorrectGenotypes(object):
                 distribution_of_ranks = probs_errors.to_numpy().flatten()
                 quant95_t, quant99_t, quantE_t, quantP_t = np.quantile(distribution_of_ranks, [0.95,0.99, filter_e, init_filter_p], interpolation='higher')
                 
-                ax = sns.distplot(distribution_of_ranks)
-                ax.set(xlabel='sum difference in observed vs expected', ylabel='count')
-                plt.axvline(quantE_t, 0,1, color="black")
-                plt.axvline(quant95_t, 0,1, color="blue")
-                plt.axvline(quant99_t, 0,1, color="red")
-                plt.axvline(quantP_t, 0,1, color="yellow")
-                plt.savefig("%s/distribution_of_sum_error_ranks_histogram_preld.png" % DEBUGDIR, dpi=300)
-                plt.clf()
-                
+                with plt.ioff() :
+                    ax = sns.distplot(distribution_of_ranks)
+                    ax.set(xlabel='sum difference in observed vs expected', ylabel='count')
+                    plt.axvline(quantE_t, 0,1, color="black")
+                    plt.axvline(quant95_t, 0,1, color="blue")
+                    plt.axvline(quant99_t, 0,1, color="red")
+                    plt.axvline(quantP_t, 0,1, color="yellow")
+                    plt.savefig("%s/distribution_of_sum_error_ranks_histogram_preld.png" % DEBUGDIR, dpi=300)
+                    plt.clf()
+                    
                 #TODO this is taking ages to run!!!
                 if empC is not None:
                     empvalues = list()
@@ -640,20 +641,24 @@ class CorrectGenotypes(object):
                     maxsumprobs = np.nanmax(probs_errors)
                     probs_errors = np.divide(probs_errors,maxsumprobs)
                     probs_errors[corrected_genotype == 9] = 1
-                    ax = sns.distplot(empvalues)
-                    ax.set(xlabel='empvalues probability', ylabel='count')
-                    plt.savefig("%s/distribution_of_empvalues_prob.png" % DEBUGDIR, dpi=300)
-                    plt.clf()
+                    
+                    with plt.ioff() :
+                        ax = sns.distplot(empvalues)
+                        ax.set(xlabel='empvalues probability', ylabel='count')
+                        plt.savefig("%s/distribution_of_empvalues_prob.png" % DEBUGDIR, dpi=300)
+                        plt.clf()
                 
                 distribution_of_ranks = probs_errors.to_numpy().flatten()
                 quant95_t, quant99_t, quantP_t = np.quantile(distribution_of_ranks, [0.95,0.99, init_filter_p])
-                ax = sns.distplot(distribution_of_ranks)
-                plt.axvline(quant95_t, 0,1, color="blue")
-                plt.axvline(quant99_t, 0,1, color="red")
-                plt.axvline(quantP_t, 0,1, color="yellow")
-                ax.set(xlabel='probability of error', ylabel='count')
-                plt.savefig("%s/distribution_of_error_ranks_histogram_postld.png" % DEBUGDIR, dpi=300)
-                plt.clf()
+                
+                with plt.ioff() :
+                    ax = sns.distplot(distribution_of_ranks)
+                    plt.axvline(quant95_t, 0,1, color="blue")
+                    plt.axvline(quant99_t, 0,1, color="red")
+                    plt.axvline(quantP_t, 0,1, color="yellow")
+                    ax.set(xlabel='probability of error', ylabel='count')
+                    plt.savefig("%s/distribution_of_error_ranks_histogram_postld.png" % DEBUGDIR, dpi=300)
+                    plt.clf()
                 
                 print("n over 95pc quantile = %s" % len([x for x in distribution_of_ranks if x > quant95_t]))
                 print("n over 99pc quantile error = %s" % len([x for x in distribution_of_ranks if x > quant99_t]))
