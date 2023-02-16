@@ -100,7 +100,7 @@ class CorrectGenotypes(object):
             
             if len(parents) > 0:
                 genotyped = [x for x in allindiv if x in genotypes.index]
-                all_values = dict(zip(list(map(str,genotyped)), genotypes.at[genotyped,SNP_id]))
+                all_values = dict(zip(list(map(str,genotyped)), genotypes.loc[genotyped,SNP_id]))
                 evidence = {x:v for x,v in all_values.items() if int(x) != kid and v != 9 and x in model.nodes}
                 key = tuple([*sorted(evidence.items()),kid])
                 if key not in cache:
@@ -200,7 +200,7 @@ class CorrectGenotypes(object):
             
             for SNP_id in suspect_snps:
                 genotyped = [x for x in allindiv if x in genotypes.index]
-                all_values = dict(zip(list(map(str,genotyped)), genotypes.at[genotyped,SNP_id].values))
+                all_values = dict(zip(list(map(str,genotyped)), genotypes.loc[genotyped,SNP_id].values))
                 observed_state_sire = all_values[str(sire)]
                 observed_state_dam = all_values[str(dam)]
                 
@@ -355,7 +355,7 @@ class CorrectGenotypes(object):
             
             for SNP_id in suspect_snps:
                 genotyped = [x for x in allindiv if x in genotypes.index]
-                all_values = dict(zip(list(map(str, genotyped)), genotypes.at[genotyped, SNP_id].values))
+                all_values = dict(zip(list(map(str, genotyped)), genotypes.loc[genotyped, SNP_id].values))
                 observed_state = all_values[str(kid)]
                 
                 error_probs_all = {k:error_probs.at[int(k), SNP_id] for k, state in all_values.items() if state in [0, 1, 2]}

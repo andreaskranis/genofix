@@ -65,8 +65,11 @@ class JointAllellicDistribution(object):
         window = self.getWindow(targetSnp)
         return(self.getCountTable({x:9 for x in window}, targetSnp))
     
+    '''
+    
+    '''
     def getCountTable(self, observedstates: dict, targetSnp):
-        all_obs = [(sys.intern(snpid),observedstates[snpid]) for snpid in self.windows[targetSnp]]
+        all_obs = [(sys.intern(snpid),observedstates.get(snpid,9)) for snpid in self.windows[targetSnp]] #if they don't provide a observed state we assume 9
         
         # we essentially create all possible queries for all 9 states and then restrict list to known states (recursion is probubly faster than this)
         if 9 in [x[1] for x in all_obs]:
