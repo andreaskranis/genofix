@@ -32,6 +32,7 @@ _DEBUG_NO_CHANGE = False
 
 def initializerEmp(empC):
     multiprocessing.current_process().indexemp = copy.copy(empC)
+    print("initialised empirical compute thread")
 
 def initializer(corrected_genotype_c, pedigree_c, probs_errors, cacheIn=None):
     multiprocessing.current_process().genotypes = corrected_genotype_c.copy()
@@ -66,8 +67,7 @@ class CorrectGenotypes(object):
         empiricalcount = indexemp.getCountTable(observedstatesevidence,SNP_id)
         if np.nansum(empiricalcount) > 0:
             return(np.divide(empiricalcount,np.nansum(empiricalcount)))
-        else :
-            return(empiricalcount)
+        return(empiricalcount)
     
     @staticmethod
     def mendelProbsSingle(kid:int, back:int, elimination_order="MinNeighbors"):
@@ -533,7 +533,9 @@ class CorrectGenotypes(object):
             
             with logoutput.stats.Stats(DEBUGDIR) as log_stats:
                 corrected_genotype = genotypes.copy()
-                probs = {}
+                
+                probs = {} # this is for DEBUG
+                
                 probs_errors = pd.DataFrame(np.zeros(genotypes.shape), columns=genotypes.columns, index=genotypes.index)
                 cache_store = {}
                 #if debugreal is not None:
@@ -570,7 +572,11 @@ class CorrectGenotypes(object):
                             if e is not None:
                                 print(repr(e))
                                 raise(e)
-                            probs[kid], probsErrors, cache_store[kid] = future.result()
+                            pk, probsErrors, cache_store[kid] = future.result()
+                            
+                            if DEBUGDIR is not None:
+                                probs[kid] = pk
+                            
                             probs_errors.loc[kid,:] = np.squeeze(probsErrors)
                             #blanket of partners partents and kids
                             del futures[future]
@@ -611,17 +617,19 @@ class CorrectGenotypes(object):
                                             initializer=initializerEmp,
                                             initargs=(empC,)) as executor:
                         commonSNPs = set(empC.snp_ordered).intersection(set(corrected_genotype.columns)) # in both empirical index and array
-                        for kid in tqdm(corrected_genotype.index):
-                            for j, SNP_id in enumerate([x for x in corrected_genotype.columns]):
-                                observed_state = corrected_genotype.at[kid,SNP_id]
-                                if observed_state in [0,1,2] and SNP_id in commonSNPs :# removed this and made emp method assume 9 if missing : # don't bother if its a 9 or not in the empirical
-                                    windowSNPs = [x for x in empC.getWindow(SNP_id)] # we check if these snps are in the current window
-                                    observedstatesevidence = {snpid:corrected_genotype.at[kid,snpid] if snpid in commonSNPs else 9 for snpid in windowSNPs}
-                                    futures[executor.submit(self.getEmpProbs, [observedstatesevidence,SNP_id])] = tuple([kid,SNP_id, j])
                         
+                        print("creating jobs for %s snps" % (len(corrected_genotype.columns)))
+                        for j, SNP_id in tqdm(enumerate([x for x in corrected_genotype.columns])):
+                            if SNP_id in commonSNPs:
+                                windowSNPs = [x for x in empC.getWindow(SNP_id)] # we check if these snps are in the current window
+                                for kid in corrected_genotype.index:
+                                    observed_state = corrected_genotype.at[kid,SNP_id]
+                                    if observed_state in [0,1,2] :# removed this and made emp method assume 9 if missing : # don't bother if its a 9 or not in the empirical
+                                        observedstatesevidence = {snpid:corrected_genotype.at[kid,snpid] if snpid in commonSNPs else 9 for snpid in windowSNPs}
+                                        futures[executor.submit(self.getEmpProbs, observedstatesevidence,SNP_id)] = tuple([kid,SNP_id, j])
                         print("waiting on %s queued jobs with %s threads" % (len(futures), threads))
                         with tqdm(total=len(futures)) as pbar:
-                            for future,(kid, SNP_id, j)  in concurrent.futures.as_completed(futures) :
+                            for future,(kid, SNP_id, j) in concurrent.futures.as_completed(futures) :
                                 pbar.update(1)
                                 e = future.exception()
                                 if e is not None:
@@ -629,7 +637,9 @@ class CorrectGenotypes(object):
                                     raise(e)
                                 prob_states_normalised  = future.result()
                                 if np.nansum(prob_states_normalised) > 0:
-                                    probs[kid][j] = np.nanmean([prob_states_normalised,probs[kid][j]],0,dtype=float)
+                                    
+                                    if DEBUGDIR is not None:
+                                        probs[kid][j] = np.nanmean([prob_states_normalised,probs[kid][j]],0,dtype=float)
                                     empdiff = np.nanmax(prob_states_normalised)-prob_states_normalised[observed_state]
                                     empvalues.append(empdiff)
                                     #probs_errors[kid][j] = np.nanmean([empdiff,probs_errors[kid][j]], 0, dtype=float)
