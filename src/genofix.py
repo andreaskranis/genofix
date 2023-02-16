@@ -31,7 +31,11 @@ import numpy as np
 from correct_genotypes3 import CorrectGenotypes
 from typing import Tuple, List, Dict, Union
 import multiprocessing
-import pickle
+
+try:
+    import cPickle as pickle
+except:
+    import pickle
 
 from gfutils.gensrandaccess import GensCache
 
@@ -104,7 +108,10 @@ USAGE
         parser.add_argument("-E", "--elimination_order", dest="elimination_order", type=str, required=False, default="weightedminfill", choices=["weightedminfill","minneighbors","minweight","minfill"], help="elimination order in mendel prob calculation")
         parser.add_argument("-T", "--threads", dest="threads", type=int, required=False, default=multiprocessing.cpu_count(),  help="weight of empirical vs collected medelian error when ranking snps by error probability")
         parser.add_argument('-P', '--empC', dest="empC", required=True, help="folder with prior empirical disribution for ld snps /chr/*.idx.gz")
+        parser.add_argument('-C', '--chunksize', dest="chunksize", required=False, default=10000, help="How many SNPs to correct in each pass: more is faster but uses more memory")
         parser.add_argument('-V', '--version', action='version', version=program_version_message)
+        
+        
         
         # Process arguments
         args = parser.parse_args()
@@ -116,7 +123,7 @@ USAGE
         
         elimination_order = str(args.elimination_order)
         first_n_snps  = args.first_n_snps
-        
+        chunksize = args.chunksize
         empCFile = args.empC
         
         threshold_singles = float(args.threshold_singles)
@@ -210,7 +217,7 @@ USAGE
             print("surround size is %s " % surround_size)
             
             found_snps = [x for x in snps if x in g_cache.snps and x in chromosome2snp[chromosome]]
-            chunks = chunk(found_snps, 1000, (surround_size*2)+1, (surround_size*2)+1)
+            chunks = chunk(found_snps, chunksize, (surround_size*2)+1, (surround_size*2)+1)
             for i, snps in enumerate(chunks):
                 print("correcting chunk %s of %s with %s snps in chunk" % ( i, len(chunks), len(snps)))
                 
