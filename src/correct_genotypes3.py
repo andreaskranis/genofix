@@ -30,8 +30,6 @@ import logoutput.stats
 import copy 
 _DEBUG_NO_CHANGE = False
 
-
-
 def initializerEmp(empC):
     multiprocessing.current_process().indexemp = copy.copy(empC)
 
@@ -619,11 +617,11 @@ class CorrectGenotypes(object):
                                 if observed_state in [0,1,2] and SNP_id in commonSNPs: # don't bother if its a 9 or not in the empirical
                                     windowSNPs = [x for x in empC.getWindow(SNP_id)] # we check if these snps are in the current window
                                     observedstatesevidence = {snpid:corrected_genotype.loc[kid,snpid] if snpid in commonSNPs else 9 for snpid in windowSNPs}
-                                    futures[tuple([kid,SNP_id, j])] = executor.submit(self.getEmpProbs, [observedstatesevidence,SNP_id])
+                                    futures[executor.submit(self.getEmpProbs, [observedstatesevidence,SNP_id])] = tuple([kid,SNP_id, j])
                         
                         print("waiting on %s queued jobs with %s threads" % (len(futures), threads))
                         with tqdm(total=len(futures)) as pbar:
-                            for (kid, SNP_id, j), future in concurrent.futures.as_completed(futures) :
+                            for future,(kid, SNP_id, j)  in concurrent.futures.as_completed(futures) :
                                 pbar.update(1)
                                 e = future.exception()
                                 if e is not None:
