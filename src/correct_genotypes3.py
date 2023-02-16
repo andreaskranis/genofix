@@ -601,15 +601,15 @@ class CorrectGenotypes(object):
                     plt.axvline(quantP_t, 0,1, color="yellow")
                     plt.savefig("%s/distribution_of_sum_error_ranks_histogram_preld.png" % DEBUGDIR, dpi=300)
                     plt.clf()
-                    
+                
                 #TODO this is taking ages to run!!!
                 if empC is not None:
                     empvalues = list()
                     print("adjusting rank by lnprobs")
-                    futures = {}
                     with concurrent.futures.ProcessPoolExecutor(max_workers=threads,
                                             initializer=initializerEmp,
                                             initargs=(empC,)) as executor:
+                        futures = {}
                         commonSNPs = set(empC.snp_ordered).intersection(set(corrected_genotype.columns)) # in both empirical index and array
                         
                         print("creating jobs for %s snps" % (len(corrected_genotype.columns)))
@@ -620,15 +620,15 @@ class CorrectGenotypes(object):
                                     observed_state = corrected_genotype.at[kid,SNP_id]
                                     if observed_state in [0,1,2] :# removed this and made emp method assume 9 if missing : # don't bother if its a 9 or not in the empirical
                                         observedstatesevidence = {snpid:corrected_genotype.at[kid,snpid] if snpid in commonSNPs else 9 for snpid in windowSNPs}
-                                        futures[executor.submit(self.getEmpProbs, observedstatesevidence,SNP_id)] = tuple([kid,SNP_id])
+                                        futures[executor.submit(self.getEmpProbs, observedstatesevidence,SNP_id)] = (kid,SNP_id)
                         print("waiting on %s queued jobs with %s threads" % (len(futures), threads))
                         with tqdm(total=len(futures)) as pbar:
-                            for future,(kid, SNP_id) in concurrent.futures.as_completed(futures) :
+                            for future in concurrent.futures.as_completed(futures) :
                                 pbar.update(1)
                                 e = future.exception()
                                 if e is not None:
                                     print(repr(e))
-                                    raise(e)
+                                kid, SNP_id = futures[future]
                                 prob_states_normalised  = future.result()
                                 if np.nansum(prob_states_normalised) > 0:
                                     empdiff = np.nanmax(prob_states_normalised)-prob_states_normalised[observed_state]
