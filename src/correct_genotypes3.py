@@ -28,10 +28,18 @@ import multiprocessing
 from empirical.jalleledist3 import JointAllellicDistribution
 import logoutput.stats
 import copy 
+from numpy import floor
 _DEBUG_NO_CHANGE = False
 
 def initializerEmp(empC):
-    multiprocessing.current_process().indexemp = copy.deepcopy(empC)
+    multiprocessing.current_process().indexemp = copy.copy(empC)
+    multiprocessing.current_process().indexemp.frequency = copy.copy(empC.frequency)
+    multiprocessing.current_process().indexemp.windows = copy.copy(empC.windows)
+    multiprocessing.current_process().indexemp.snp_ordered = copy.copy(empC.snp_ordered)
+    multiprocessing.current_process().indexemp.chromosome2snp = copy.copy(empC.chromosome2snp)
+    multiprocessing.current_process().indexemp.state_values = copy.copy(empC.state_values)
+    
+    print("init Emp ")
 
 def initializer(corrected_genotype_c, pedigree_c, probs_errors, cacheIn=None):
     multiprocessing.current_process().genotypes = corrected_genotype_c.copy()
@@ -606,7 +614,7 @@ class CorrectGenotypes(object):
                 if empC is not None:
                     empvalues = list()
                     print("adjusting rank by lnprobs")
-                    with concurrent.futures.ProcessPoolExecutor(max_workers=threads,
+                    with concurrent.futures.ProcessPoolExecutor(max_workers=int(np.floor(threads/2)+1),
                                             initializer=initializerEmp,
                                             initargs=(empC,)) as executor:
                         futures = {}
