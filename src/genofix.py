@@ -219,7 +219,7 @@ USAGE
             found_snps = [x for x in snps if x in g_cache.snps and x in chromosome2snp[chromosome]]
             chunks = chunk(found_snps, chunksize, (surround_size*2)+1, (surround_size*2)+1)
             for i, snps in enumerate(chunks):
-                print("correcting chunk %s of %s with %s snps in chunk" % ( i, len(chunks), len(snps)))
+                print("correcting chunk %s of %s with %s snps in chunk" % ( i+1, len(chunks), len(snps)))
                 
                 genotypes = pd.DataFrame(data=g_cache.getMatrix(list(g_cache.all_ids)), 
                                          index=list(g_cache.all_ids),
