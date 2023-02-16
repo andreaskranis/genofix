@@ -32,7 +32,6 @@ _DEBUG_NO_CHANGE = False
 
 def initializerEmp(empC):
     multiprocessing.current_process().indexemp = copy.copy(empC)
-    print("initialised empirical compute thread")
 
 def initializer(corrected_genotype_c, pedigree_c, probs_errors, cacheIn=None):
     multiprocessing.current_process().genotypes = corrected_genotype_c.copy()
@@ -534,8 +533,6 @@ class CorrectGenotypes(object):
             with logoutput.stats.Stats(DEBUGDIR) as log_stats:
                 corrected_genotype = genotypes.copy()
                 
-                probs = {} # this is for DEBUG
-                
                 probs_errors = pd.DataFrame(np.zeros(genotypes.shape), columns=genotypes.columns, index=genotypes.index)
                 cache_store = {}
                 #if debugreal is not None:
@@ -573,10 +570,6 @@ class CorrectGenotypes(object):
                                 print(repr(e))
                                 raise(e)
                             pk, probsErrors, cache_store[kid] = future.result()
-                            
-                            if DEBUGDIR is not None:
-                                probs[kid] = pk
-                            
                             probs_errors.loc[kid,:] = np.squeeze(probsErrors)
                             #blanket of partners partents and kids
                             del futures[future]
@@ -619,17 +612,17 @@ class CorrectGenotypes(object):
                         commonSNPs = set(empC.snp_ordered).intersection(set(corrected_genotype.columns)) # in both empirical index and array
                         
                         print("creating jobs for %s snps" % (len(corrected_genotype.columns)))
-                        for j, SNP_id in tqdm(enumerate([x for x in corrected_genotype.columns])):
+                        for SNP_id in tqdm(corrected_genotype.columns):
                             if SNP_id in commonSNPs:
                                 windowSNPs = [x for x in empC.getWindow(SNP_id)] # we check if these snps are in the current window
                                 for kid in corrected_genotype.index:
                                     observed_state = corrected_genotype.at[kid,SNP_id]
                                     if observed_state in [0,1,2] :# removed this and made emp method assume 9 if missing : # don't bother if its a 9 or not in the empirical
                                         observedstatesevidence = {snpid:corrected_genotype.at[kid,snpid] if snpid in commonSNPs else 9 for snpid in windowSNPs}
-                                        futures[executor.submit(self.getEmpProbs, observedstatesevidence,SNP_id)] = tuple([kid,SNP_id, j])
+                                        futures[executor.submit(self.getEmpProbs, observedstatesevidence,SNP_id)] = tuple([kid,SNP_id])
                         print("waiting on %s queued jobs with %s threads" % (len(futures), threads))
                         with tqdm(total=len(futures)) as pbar:
-                            for future,(kid, SNP_id, j) in concurrent.futures.as_completed(futures) :
+                            for future,(kid, SNP_id) in concurrent.futures.as_completed(futures) :
                                 pbar.update(1)
                                 e = future.exception()
                                 if e is not None:
@@ -637,9 +630,6 @@ class CorrectGenotypes(object):
                                     raise(e)
                                 prob_states_normalised  = future.result()
                                 if np.nansum(prob_states_normalised) > 0:
-                                    
-                                    if DEBUGDIR is not None:
-                                        probs[kid][j] = np.nanmean([prob_states_normalised,probs[kid][j]],0,dtype=float)
                                     empdiff = np.nanmax(prob_states_normalised)-prob_states_normalised[observed_state]
                                     empvalues.append(empdiff)
                                     #probs_errors[kid][j] = np.nanmean([empdiff,probs_errors[kid][j]], 0, dtype=float)
@@ -813,10 +803,10 @@ class CorrectGenotypes(object):
                                             else:
                                                 excludedNotBest +=1
                                                 if outputerrors and corrected_genotype.at[int(resultPair.sire),SNP_id] != debugreal.at[int(resultPair.sire),SNP_id]:
-                                                    logoutput.debugutil._debugoutput(DEBUGDIR, "pairsire_incorrectrankexcl", SNP_id, resultPair, sireparents,corrected_genotype, debugreal, probs)
+                                                    logoutput.debugutil._debugoutput(DEBUGDIR, "pairsire_incorrectrankexcl", SNP_id, resultPair, sireparents,corrected_genotype, debugreal, {})
                                         else:
                                             if outputerrors and corrected_genotype.at[int(resultPair.sire),SNP_id] != debugreal.at[int(resultPair.sire),SNP_id]:
-                                                logoutput.debugutil._debugoutput(DEBUGDIR, "pairsire_thresholdexcl", SNP_id, resultPair, sireparents, corrected_genotype, debugreal, probs)
+                                                logoutput.debugutil._debugoutput(DEBUGDIR, "pairsire_thresholdexcl", SNP_id, resultPair, sireparents, corrected_genotype, debugreal, {})
                                         
                                         if observed_dam not in [0,1,2] or (observed_dam not in maxstates_dam and ((maxprobs_dam-dam_probs) >= threshold_pair)):
                                             #print("%s %s %s %s" % (observed_dam[SNP_id], maxstates[1], np.nanmax(dam_probs), threshold_pair))
@@ -829,10 +819,10 @@ class CorrectGenotypes(object):
                                             else:
                                                 excludedNotBest +=1
                                                 if outputerrors and corrected_genotype.at[int(resultPair.dam),SNP_id] != debugreal.at[int(resultPair.dam),SNP_id]:
-                                                    logoutput.debugutil._debugoutput(DEBUGDIR, "pairdam_incorrectrankexcl", SNP_id, resultPair, damparents, corrected_genotype, debugreal, probs)
+                                                    logoutput.debugutil._debugoutput(DEBUGDIR, "pairdam_incorrectrankexcl", SNP_id, resultPair, damparents, corrected_genotype, debugreal, {})
                                         else:
                                             if outputerrors and corrected_genotype.at[int(resultPair.dam),SNP_id] != debugreal.at[int(resultPair.dam),SNP_id]:
-                                                logoutput.debugutil._debugoutput(DEBUGDIR, "pairdam_thresholdexcl", SNP_id, resultPair, damparents, corrected_genotype, debugreal, probs)
+                                                logoutput.debugutil._debugoutput(DEBUGDIR, "pairdam_thresholdexcl", SNP_id, resultPair, damparents, corrected_genotype, debugreal, {})
         
                                     errors_all+=n_errors
                                     excludedNotBest_all += excludedNotBest
@@ -928,7 +918,7 @@ class CorrectGenotypes(object):
                                             n_errors+=1
                                     else:
                                         if outputerrors and corrected_genotype.at[int(resultkid.kid),SNP_id] != debugreal.at[int(resultkid.kid),SNP_id]:
-                                            logoutput.debugutil._debugoutput_s(DEBUGDIR, "single_thresholdexcl", SNP_id, resultkid, corrected_genotype, debugreal, probs)
+                                            logoutput.debugutil._debugoutput_s(DEBUGDIR, "single_thresholdexcl", SNP_id, resultkid, corrected_genotype, debugreal, {})
                                         excludedNotBest+=1
                                 errors_all+=n_errors
                                 excludedNotBest_all += excludedNotBest
