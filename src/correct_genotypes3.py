@@ -31,7 +31,7 @@ import copy
 _DEBUG_NO_CHANGE = False
 
 def initializerEmp(empC):
-    multiprocessing.current_process().indexemp = copy.copy(empC)
+    multiprocessing.current_process().indexemp = copy.deepcopy(empC)
 
 def initializer(corrected_genotype_c, pedigree_c, probs_errors, cacheIn=None):
     multiprocessing.current_process().genotypes = corrected_genotype_c.copy()
