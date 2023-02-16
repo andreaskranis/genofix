@@ -108,7 +108,7 @@ USAGE
         parser.add_argument("-E", "--elimination_order", dest="elimination_order", type=str, required=False, default="weightedminfill", choices=["weightedminfill","minneighbors","minweight","minfill"], help="elimination order in mendel prob calculation")
         parser.add_argument("-T", "--threads", dest="threads", type=int, required=False, default=multiprocessing.cpu_count(),  help="weight of empirical vs collected medelian error when ranking snps by error probability")
         parser.add_argument('-P', '--empC', dest="empC", required=True, help="folder with prior empirical disribution for ld snps /chr/*.idx.gz")
-        parser.add_argument('-C', '--chunksize', dest="chunksize", required=False, default=10000, help="How many SNPs to correct in each pass: more is faster but uses more memory")
+        parser.add_argument('-C', '--chunksize', dest="chunksize", type=int, required=False, default=10000, help="How many SNPs to correct in each pass: more is faster but uses more memory")
         parser.add_argument('-V', '--version', action='version', version=program_version_message)
         
         
