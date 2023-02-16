@@ -124,6 +124,8 @@ USAGE
         elimination_order = str(args.elimination_order)
         first_n_snps  = args.first_n_snps
         chunksize = args.chunksize
+        print("SNP chunksize is %s" % chunksize)
+        
         empCFile = args.empC
         
         threshold_singles = float(args.threshold_singles)
