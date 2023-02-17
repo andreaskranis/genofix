@@ -134,7 +134,7 @@ USAGE
     print("Detected %s individuals and %s snps in input file" % (len(g_cache.all_ids), len(g_cache.snps)-1))
     
     pedigree = PedigreeDAG.from_file(args.pedigree)
-    genomein = pd.read_csv(args.snps, sep=',', names = ["chrom","snpid", "cM","pos"], skiprows=1, engine='c',low_memory=False, memory_map=True)
+    genomein = pd.read_csv(args.snps, sep=',', names = ["chrom","snpid", "cM","pos"], skiprows=0, engine='c',low_memory=False, memory_map=True)
     #genomein = pd.read_csv(args.snps, sep=',', names = ["snpid", "chrom","pos", "topAllele","B"], skiprows=1, engine='c',low_memory=False, memory_map=True)
     genomein = genomein.sort_values(by=["chrom", "pos"], ascending=[True, True])
     print(genomein)
@@ -144,6 +144,7 @@ USAGE
     #chromosomes = set([row["chrom"] for _index, row in genomein.iterrows()])
     chromosomesnps = {}
     for _index, row in genomein.iterrows():
+        row["chrom"] = str(row["chrom"])
         if row["chrom"] not in chromosomesnps:
             chromosomesnps[row["chrom"]] = 1
         else:
