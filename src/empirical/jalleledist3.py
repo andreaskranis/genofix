@@ -83,6 +83,10 @@ class JointAllellicDistribution(object):
         def copypastefunc(x, query):
             return(tuple([(snpid,state) if snpid != targetSnp else (sys.intern(targetSnp),x) for snpid,state in query]))
         
+        for query in queries :
+            if copypastefunc(state, query) not in self.frequency.keys():
+                raise Exception("%s" % query)
+            
         return [np.sum([self.frequency[copypastefunc(state, query)] for query in queries]) for state in [0,1,2]]
     
     @staticmethod
