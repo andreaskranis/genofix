@@ -72,6 +72,9 @@ class CorrectGenotypes(object):
         
         kid2empiricalCount = dict()
         for kid in snpWindowChunk.index:
+            if SNP_id not in snpWindowChunk.columns :
+                print("missing SNP_id")
+                print(snpWindowChunk)
             observed_state = snpWindowChunk.at[kid,SNP_id]
             if observed_state in [0,1,2] :# no point looking for empirical if we have never seen before
                 observedstatesevidence = {snpid:snpWindowChunk.at[kid,snpid] for snpid in snpWindowChunk.columns}
@@ -624,14 +627,12 @@ class CorrectGenotypes(object):
                                             initargs=(empC,)) as executor:
                         futures = {}
                         commonSNPs = set(empC.snp_ordered).intersection(set(corrected_genotype.columns)) # in both empirical index and array
-                        
                         print("creating jobs for %s snps" % (len(corrected_genotype.columns)))
-                        for SNP_id in tqdm(corrected_genotype.columns):
-                            if SNP_id in commonSNPs:
-                                windowSNPs = [x for x in empC.getWindow(SNP_id) if x in commonSNPs] # we check if these snps are in the current window
-                                snpWindowChunk = corrected_genotype.loc[:,windowSNPs].copy(deep=True)
-                                futures[executor.submit(self.getEmpProbs, snpWindowChunk, SNP_id)] = SNP_id
-                            
+                        for SNP_id in tqdm(commonSNPs):
+                            windowSNPs = [x for x in empC.getWindow(SNP_id) if x in commonSNPs] # we check if these snps are in the current window
+                            snpWindowChunk = corrected_genotype.loc[:,windowSNPs].copy(deep=True)
+                            futures[executor.submit(self.getEmpProbs, snpWindowChunk, SNP_id)] = SNP_id
+                        
                         print("waiting on %s queued jobs (per kid) with %s threads " % (len(futures), threads))
                         with tqdm(total=len(futures)) as pbar:
                             for future in concurrent.futures.as_completed(futures) :
@@ -647,7 +648,7 @@ class CorrectGenotypes(object):
                                     empvalues.append(empdiff)
                                     #probs_errors[kid][j] = np.nanmean([empdiff,probs_errors[kid][j]], 0, dtype=float)
                                     #probs_errors[kid][j] = np.multiply(empdiff,probs_errors[kid][j])
-                                    probs_errors.at[kid,SNP_id] = np.nanmean([probs_errors.at[kid,SNP_id],empdiff*weight_empirical],0,dtype=float)
+                                    probs_errors.at[kid,SNP_id] = np.mean([probs_errors.at[kid,SNP_id],empdiff*weight_empirical])
                                 del future
                     
                     maxsumprobs = np.nanmax(probs_errors)
