@@ -737,7 +737,7 @@ class CorrectGenotypes(object):
                                         maxstates_dam = np.where(np.array(dam_probs_all_states >= (maxprobs_dam-tiethreshold), dtype=bool))[0]
                                         
                                         if empC is not None: # this overwrites the probabilities with product of empirical and mendelian 
-                                            snpwindow = empC.getWindow(SNP_id)
+                                            snpwindow = [x for x in empC.getWindow(SNP_id) if SNP_id in corrected_genotype.columns]
                                             observedstatesevidence_sire = {snpid:corrected_genotype.at[resultPair.sire,snpid] for snpid in snpwindow}
                                             state_obs_sire = list(empC.getCountTable(observedstatesevidence_sire, SNP_id))
                                             if np.nansum(state_obs_sire) > 0:
@@ -874,7 +874,7 @@ class CorrectGenotypes(object):
                                     observed_prob = 0. if observed_state == 9 else resultkid.observedprob[SNP_id]
                                     
                                     if empC is not None: # this overwrites the probabilities with product of empirical and mendelian 
-                                        snpwindow = empC.getWindow(SNP_id)
+                                        snpwindow = [x for x in empC.getWindow(SNP_id) if SNP_id in corrected_genotype.columns]
                                         observedstatesevidence = {snpid:corrected_genotype.at[resultkid.kid,snpid] for snpid in snpwindow}
                                         state_obs = list(empC.getCountTable(observedstatesevidence, SNP_id))
                                         prob_states_normalised =  np.divide(state_obs,np.sum(state_obs))
