@@ -68,13 +68,20 @@ class CorrectGenotypes(object):
         self.elimination_order = elimination_order
     
     @staticmethod
-    def getEmpProbs(observedstatesevidence,SNP_id) :
+    def getEmpProbs(snpWindowChunk, SNP_id) :
         current = multiprocessing.current_process()
         indexemp = current.indexemp
-        empiricalcount = indexemp.getCountTable(observedstatesevidence,SNP_id)
-        if np.nansum(empiricalcount) > 0:
-            return(np.divide(empiricalcount,np.nansum(empiricalcount)))
-        return(empiricalcount)
+        
+        kid2empiricalCount = dict()
+        for kid in snpWindowChunk.index:
+            observed_state = snpWindowChunk.at[kid,SNP_id]
+            if observed_state in [0,1,2] :# no point looking for empirical if we have never seen before
+                observedstatesevidence = {snpid:snpWindowChunk.at[kid,snpid] for snpid in snpWindowChunk.columns}
+                empiricalcount4kid = indexemp.getCountTable(observedstatesevidence,SNP_id)
+                if np.nansum(empiricalcount4kid) > 0: #id all zero then we lack info so ignore
+                    empiricalcount4kid = np.divide(empiricalcount4kid,np.nansum(empiricalcount4kid))
+                    kid2empiricalCount[(kid,observed_state)] = empiricalcount4kid    
+        return(kid2empiricalCount)
     
     @staticmethod
     def mendelProbsSingle(kid:int, back:int, elimination_order="MinNeighbors"):
@@ -623,22 +630,21 @@ class CorrectGenotypes(object):
                         print("creating jobs for %s snps" % (len(corrected_genotype.columns)))
                         for SNP_id in tqdm(corrected_genotype.columns):
                             if SNP_id in commonSNPs:
-                                windowSNPs = [x for x in empC.getWindow(SNP_id)] # we check if these snps are in the current window
-                                for kid in corrected_genotype.index:
-                                    observed_state = corrected_genotype.at[kid,SNP_id]
-                                    if observed_state in [0,1,2] :# removed this and made emp method assume 9 if missing : # don't bother if its a 9 or not in the empirical
-                                        observedstatesevidence = {snpid:corrected_genotype.at[kid,snpid] if snpid in commonSNPs else 9 for snpid in windowSNPs}
-                                        futures[executor.submit(self.getEmpProbs, observedstatesevidence,SNP_id)] = (kid,SNP_id)
-                        print("waiting on %s queued jobs with %s threads" % (len(futures), threads))
+                                windowSNPs = [x for x in empC.getWindow(SNP_id) if x in commonSNPs] # we check if these snps are in the current window
+                                snpWindowChunk = corrected_genotype.loc[:,windowSNPs]
+                                futures[executor.submit(self.getEmpProbs, snpWindowChunk, SNP_id)] = SNP_id
+                            
+                        print("waiting on %s queued jobs (per kid) with %s threads " % (len(futures), threads))
                         with tqdm(total=len(futures)) as pbar:
                             for future in concurrent.futures.as_completed(futures) :
                                 pbar.update(1)
                                 e = future.exception()
                                 if e is not None:
                                     print(repr(e))
-                                kid, SNP_id = futures[future]
-                                prob_states_normalised  = future.result()
-                                if np.nansum(prob_states_normalised) > 0:
+                                SNP_id = futures[future]
+                                kid2empiricalCount = future.result()
+                                
+                                for (kid,observed_state), prob_states_normalised in kid2empiricalCount.items(): # we pull over observed state to avoid two lookups
                                     empdiff = np.nanmax(prob_states_normalised)-prob_states_normalised[observed_state]
                                     empvalues.append(empdiff)
                                     #probs_errors[kid][j] = np.nanmean([empdiff,probs_errors[kid][j]], 0, dtype=float)
