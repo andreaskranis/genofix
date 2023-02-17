@@ -73,21 +73,22 @@ class JointAllellicDistribution(object):
         
         # we essentially create all possible queries for all 9 states and then restrict list to known states (recursion is probubly faster than this)
         if 9 in [x[1] for x in all_obs]:
-            queries = [tuple([(k,s) for k,s in zip(observedstates.keys(), values)]) for values in self.state_values]
+            all_queries = set([tuple([(k,s) for k,s in zip(all_obs.keys(), values)]) for values in self.state_values])
             for i, (snp, state) in enumerate(all_obs):
                 if state != 9:
-                    queries = [query for query in queries if query[i] == (snp,state)]
+                    all_queries = [query for query in all_queries if query[i] == (snp,state)]
+            queries = list(all_queries)
         else:
             queries = [all_obs]
-
+        
         def copypastefunc(x, query):
             return(tuple([(snpid,state) if snpid != targetSnp else (sys.intern(targetSnp),x) for snpid,state in query]))
         
-        for state in [0,1,2] :
-            for query in queries :
-                if copypastefunc(state, query) not in self.frequency.keys():
-                    raise Exception("%s \n %s" % ("_".join(self.windows[targetSnp]),"--".join(query)))
-            
+#        for state in [0,1,2] :
+#            for query in queries :
+#                if copypastefunc(state, query) not in self.frequency.keys():
+#                    raise Exception("%s \n %s" % ("_".join(self.windows[targetSnp]),"--".join(query)))
+        
         return [np.sum([self.frequency[copypastefunc(state, query)] for query in queries]) for state in [0,1,2]]
     
     @staticmethod
