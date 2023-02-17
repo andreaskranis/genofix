@@ -73,7 +73,7 @@ class JointAllellicDistribution(object):
         
         # we essentially create all possible queries for all 9 states and then restrict list to known states (recursion is probubly faster than this)
         if 9 in [x[1] for x in all_obs]:
-            all_queries = set([tuple([(k,s) for k,s in zip(all_obs.keys(), values)]) for values in self.state_values])
+            all_queries = set([tuple([(k,s) for k,s in zip([k[0] for k in all_obs], values)]) for values in self.state_values])
             for i, (snp, state) in enumerate(all_obs):
                 if state != 9:
                     all_queries = [query for query in all_queries if query[i] == (snp,state)]
