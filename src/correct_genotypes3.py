@@ -77,7 +77,12 @@ class CorrectGenotypes(object):
             observed_state = snpWindowChunk.at[kid,SNP_id]
             if observed_state in [0,1,2] :# no point looking for empirical if we have never seen before
                 observedstatesevidence = {snpid:snpWindowChunk.at[kid,snpid] for snpid in snpWindowChunk.columns}
-                empiricalcount4kid = indexemp.getCountTable(observedstatesevidence,SNP_id)
+                try :
+                    empiricalcount4kid = indexemp.getCountTable(observedstatesevidence,SNP_id)
+                except Exception as e:
+                    print(snpWindowChunk)
+                    print("%s %s %s" % (observedstatesevidence, SNP_id, observed_state))
+                    raise e
                 if np.nansum(empiricalcount4kid) > 0: #id all zero then we lack info so ignore
                     empiricalcount4kid = np.divide(empiricalcount4kid,np.nansum(empiricalcount4kid))
                     kid2empiricalCount[(kid,observed_state)] = empiricalcount4kid    
