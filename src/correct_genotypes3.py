@@ -72,9 +72,6 @@ class CorrectGenotypes(object):
         
         kid2empiricalCount = dict()
         for kid in snpWindowChunk.index:
-            if SNP_id not in snpWindowChunk.columns :
-                print("missing SNP_id")
-                print(snpWindowChunk)
             observed_state = snpWindowChunk.at[kid,SNP_id]
             if observed_state in [0,1,2] :# no point looking for empirical if we have never seen before
                 observedstatesevidence = {snpid:snpWindowChunk.at[kid,snpid] for snpid in snpWindowChunk.columns}
@@ -631,7 +628,12 @@ class CorrectGenotypes(object):
                         for SNP_id in tqdm(commonSNPs):
                             windowSNPs = [x for x in empC.getWindow(SNP_id) if x in commonSNPs] # we check if these snps are in the current window
                             snpWindowChunk = corrected_genotype.loc[:,windowSNPs].copy(deep=True)
-                            futures[executor.submit(self.getEmpProbs, snpWindowChunk, SNP_id)] = SNP_id
+                            
+                            if SNP_id not in snpWindowChunk.columns :
+                                print("missing SNP_id %s %s? " % (SNP_id, SNP_id in windowSNPs) )
+                                print(snpWindowChunk)
+                            else :
+                                futures[executor.submit(self.getEmpProbs, snpWindowChunk, SNP_id)] = SNP_id
                         
                         print("waiting on %s queued jobs (per kid) with %s threads " % (len(futures), threads))
                         with tqdm(total=len(futures)) as pbar:
