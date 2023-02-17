@@ -86,7 +86,7 @@ class JointAllellicDistribution(object):
         for state in [0,1,2] :
             for query in queries :
                 if copypastefunc(state, query) not in self.frequency.keys():
-                    raise Exception("%s" % query)
+                    raise Exception("%s \n %s" % ("_".join(self.windows[targetSnp]),"--".join(query)))
             
         return [np.sum([self.frequency[copypastefunc(state, query)] for query in queries]) for state in [0,1,2]]
     
