@@ -38,8 +38,6 @@ def initializerEmp(empC):
     multiprocessing.current_process().indexemp.snp_ordered = copy.copy(empC.snp_ordered)
     multiprocessing.current_process().indexemp.chromosome2snp = copy.copy(empC.chromosome2snp)
     multiprocessing.current_process().indexemp.state_values = copy.copy(empC.state_values)
-    
-    print("init Emp ")
 
 def initializer(corrected_genotype_c, pedigree_c, probs_errors, cacheIn=None):
     multiprocessing.current_process().genotypes = corrected_genotype_c.copy()
@@ -631,7 +629,7 @@ class CorrectGenotypes(object):
                         for SNP_id in tqdm(corrected_genotype.columns):
                             if SNP_id in commonSNPs:
                                 windowSNPs = [x for x in empC.getWindow(SNP_id) if x in commonSNPs] # we check if these snps are in the current window
-                                snpWindowChunk = corrected_genotype.loc[:,windowSNPs]
+                                snpWindowChunk = corrected_genotype.loc[:,windowSNPs].copy(deep=True)
                                 futures[executor.submit(self.getEmpProbs, snpWindowChunk, SNP_id)] = SNP_id
                             
                         print("waiting on %s queued jobs (per kid) with %s threads " % (len(futures), threads))
