@@ -28,11 +28,17 @@ class JointAllellicDistribution(object):
         self.windows = {snp:self.getWindow(snp) for snp in self.snp_ordered if chromosome2snp is None or snp in chromosome2snp[chromosome]}
         self.state_values = [values for values in list(itertools.product(conditions_index, repeat=self.window_size))]
         #print("init %s keys from %s snps" % (len(self.windows)*len(self.state_values), len(snp_ordered)))
-        state_keys = set([tuple([(k,s) for k,s in zip(window, values)]) for values in self.state_values for window in self.windows.values()])
+        #state_keys = {[tuple([(k,s) for k,s in zip(window, values)]) for values in self.state_values for snp,window in self.windows.items()]}
         #print("init frequency")
-        self.frequency: Dict[tuple,int] = dict.fromkeys(state_keys,pseudocount)
-        #print("init DONE!")
+        
+        self.snp2frequency: Dict[str,Dict[tuple,int]] = {} #dict.fromkeys(state_keys,pseudocount) for snp in snp_ordered
+        for snp in snp_ordered:
+            state_keys = [tuple([(k,s) for k,s in zip(self.windows[snp], values)]) for values in self.state_values]
+            self.snp2frequency[snp] = dict.fromkeys(state_keys,pseudocount)
+        print("init DONE for %s snps!" % len(snp_ordered))
         #self.n_observations: Dict[str,int] = defaultdict(int)
+    
+    '''
     
     def toDisk(self, file_name_out):
         with zipfile.ZipFile(file_name_out, 'w') as zipped_f:
@@ -46,7 +52,7 @@ class JointAllellicDistribution(object):
             zipped_f.writestr("windows", "\n".join([str(k)+"\t"+"\t".join(v) for k,v in self.windows.items()]))
             zipped_f.writestr("state_values", "\n".join(["\t".join(map(str,k)) for k in self.state_values]))
             zipped_f.writestr("frequency", "\n".join(["\t".join([str(s)+":"+str(g) for s,g in k])+"\t"+"{:.9f}".format(v) for k,v in self.frequency.items()]))
-    
+    '''
     def getWindow(self, targetSnp):
         '''
         targetSnp is the snp around which to extract the symetric window of +- window_size
@@ -89,7 +95,7 @@ class JointAllellicDistribution(object):
 #                if copypastefunc(state, query) not in self.frequency.keys():
 #                    raise Exception("%s \n %s" % ("_".join(self.windows[targetSnp]),"--".join(query)))
         
-        return [np.sum([self.frequency[copypastefunc(state, query)] for query in queries]) for state in [0,1,2]]
+        return [np.sum([self.snp2frequency[targetSnp][copypastefunc(state, query)] for query in queries]) for state in [0,1,2]]
     
     @staticmethod
     def countJointFrq(table, mask, column_names: List[str], s_values, pseudocount, sum_inner_count=True):
@@ -143,7 +149,9 @@ class JointAllellicDistribution(object):
                         print(repr(e))
                         raise(e)
                     results = future.result()
-                    self.frequency.update(results)
+                    snp = futures[future]
+                    self.snp2frequency[snp].update(results)
+                    del future
             print("empirical count done")
             
 #===============================================================================

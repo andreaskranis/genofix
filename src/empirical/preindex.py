@@ -328,6 +328,7 @@ USAGE
                                                      list(genotypes.columns),
                                                     chromosome2snp=chromosome2snp,
                                                     surround_size=surroundsnps)
+                    snp2index[empC] = empC
                 else  :
                     empC = snp2index[empC]
                 
