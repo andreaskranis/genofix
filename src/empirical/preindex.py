@@ -194,7 +194,7 @@ USAGE
             filteredIndividualsQuant = False # have we done a filter yet
             
             for chromosome in sorted(chromosome2snp.keys()) :
-                if chromosome == "" or chromosome == "-999" or chromosome == "-9" or chromosome == "9" or len(chromosome2snp[chromosome]) < 2 :
+                if chromosome == "" or chromosome == "0" or chromosome == "-999" or chromosome == "-9" or len(chromosome2snp[chromosome]) < 2 :
                     continue
                 
                 pathlib.Path("%s/%s" % (out_dir,chromosome)).mkdir(parents=True, exist_ok=True)
