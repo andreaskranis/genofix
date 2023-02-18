@@ -112,9 +112,6 @@ USAGE
     parser.add_argument("-q", "--initquantilefilter", dest="initquantilefilter", type=float, required=False, default=0.9,  help="initial filter to select upper quantile in error likelihood dist")
     parser.add_argument("-c", "--seedskidschunk", dest="seedskidschunk", type=int, required=False, default=10000,  help="size of kid seed chunks")
     
-    #no not cache standard out!!
-    sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0)
-    
     # Process arguments
     args = parser.parse_args()
     
