@@ -12,7 +12,7 @@ import pandas as pd
 import concurrent.futures
 from tqdm import tqdm
 import multiprocessing
-
+from copy import deepcopy
 import zipfile
 import sys
 
@@ -25,7 +25,7 @@ class JointAllellicDistribution(object):
         self.chromosome = chromosome
         self.window_size = (surround_size*2)+1
         self.snp_ordered = [sys.intern(x) for x in snp_ordered if chromosome2snp is None or x in chromosome2snp[chromosome]]
-        self.windows = {snp:self.getWindow(snp) for snp in self.snp_ordered if chromosome2snp is None or snp in chromosome2snp[chromosome]}
+        self.windows = {snp:self.__getWindow(snp) for snp in self.snp_ordered if chromosome2snp is None or snp in chromosome2snp[chromosome]}
         self.state_values = [values for values in list(itertools.product(conditions_index, repeat=self.window_size))]
         #print("init %s keys from %s snps" % (len(self.windows)*len(self.state_values), len(snp_ordered)))
         #state_keys = {[tuple([(k,s) for k,s in zip(window, values)]) for values in self.state_values for snp,window in self.windows.items()]}
@@ -57,6 +57,13 @@ class JointAllellicDistribution(object):
         '''
         targetSnp is the snp around which to extract the symetric window of +- window_size
         '''
+        return(self.windows.get(targetSnp))
+    
+    def __getWindow(self, targetSnp):
+        '''
+        private method for determining from scratch see getWindow for preindexed values
+        targetSnp is the snp around which to extract the symetric window of +- window_size
+        '''
         targetpos = self.snp_ordered.index(targetSnp)
         startpos_snp = targetpos-self.surround_size
         if startpos_snp < 0:
@@ -72,18 +79,30 @@ class JointAllellicDistribution(object):
         return(self.getCountTable({x:9 for x in window}, targetSnp))
     
     '''
+    turn all unknown 9 values into new observations of 0,1,2
+    '''
+    def permutTheUnknown(self, all_obs, _found=list()):
+        isIncomplete = False
+        for i, (snpid, value) in enumerate(all_obs):
+            if value == 9:
+                isIncomplete = True
+                for x in self.conditions_index:
+                    clone = deepcopy(all_obs)
+                    clone[i] = (snpid,x)
+                    if clone not in _found:
+                        self.permutTheUnknown(clone, _found=_found)
+        if not isIncomplete and all_obs not in _found:
+            _found.append(all_obs)
+        return(_found)
+
+    '''
     
     '''
     def getCountTable(self, observedstates: dict, targetSnp):
         all_obs = [(sys.intern(snpid),observedstates.get(snpid,9)) for snpid in self.windows[targetSnp]] #if they don't provide a observed state we assume 9
         
-        # we essentially create all possible queries for all 9 states and then restrict list to known states (recursion is probubly faster than this)
-        if 9 in [x[1] for x in all_obs]:
-            all_queries = set([tuple([(k,s) for k,s in zip([k[0] for k in all_obs], values)]) for values in self.state_values])
-            for i, (snp, state) in enumerate(all_obs):
-                if state != 9:
-                    all_queries = [query for query in all_queries if query[i] == (snp,state)]
-            queries = list(all_queries)
+        if 9 in [x[1] for x in all_obs]: # this is a bit inefficiant
+            queries = self.permutTheUnknown(all_obs) # replace 9s with new observations containing 0,1 or 2
         else:
             queries = [all_obs]
         
